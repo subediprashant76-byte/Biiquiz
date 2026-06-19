@@ -71,6 +71,7 @@ def question_json(question) -> dict[str, Any]:
 
 def room_json(room) -> dict[str, Any]:
     current = room.current_question
+    participants = getattr(room, "participants", None)
     return {
         "id": str(room.id),
         "quizId": str(room.quiz_id),
@@ -93,6 +94,7 @@ def room_json(room) -> dict[str, Any]:
         "endedAt": iso(room.ended_at),
         "_count": {"participants": getattr(room, "participants_count", 0)},
         "currentQuestion": question_json(current) if current else None,
+        "participants": [participant_json(participant) for participant in participants.all().order_by("joined_at")] if participants is not None else [],
     }
 
 

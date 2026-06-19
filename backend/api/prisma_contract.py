@@ -5,6 +5,7 @@ from django.conf import settings
 REQUIRED_MODELS = {
     "Organization": "organizations",
     "User": "users",
+    "PasswordResetOtp": "password_reset_otps",
     "Quiz": "quizzes",
     "Question": "questions",
     "Room": "rooms",
@@ -19,6 +20,15 @@ REQUIRED_MODELS = {
     "RoomQuestionStat": "room_question_stats",
     "ParticipantRoomSummary": "participant_room_summaries",
     "OrganizationDailyStat": "organization_daily_stats",
+    "Plan": "plans",
+    "OrganizationSubscription": "organization_subscriptions",
+    "UpgradeRequest": "upgrade_requests",
+    "ManualPayment": "manual_payments",
+    "TenantDomain": "tenant_domains",
+    "SupportTicket": "support_tickets",
+    "SupportTicketMessage": "support_ticket_messages",
+    "PlatformSetting": "platform_settings",
+    "AiPlatformSetting": "ai_platform_settings",
 }
 
 REQUIRED_ENUMS = {
@@ -33,6 +43,15 @@ REQUIRED_ENUMS = {
     "AiDraftStatus",
     "AiUsageAction",
     "UsageStatus",
+    "OrganizationStatus",
+    "SubscriptionStatus",
+    "UpgradeRequestStatus",
+    "ManualPaymentStatus",
+    "DomainVerificationStatus",
+    "WebsiteStatus",
+    "SupportTicketStatus",
+    "SupportTicketPriority",
+    "AiAccessMode",
 }
 
 

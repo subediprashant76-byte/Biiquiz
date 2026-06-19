@@ -11,10 +11,12 @@
     "test": "npm --prefix frontend test",
     "prisma:generate": "npm --prefix frontend run prisma:generate",
     "prisma:migrate": "npm --prefix frontend run prisma:migrate",
+    "prisma:deploy": "npm --prefix frontend run prisma:deploy",
     "prisma:studio": "npm --prefix frontend run prisma:studio",
     "seed:test-users": "npm --prefix frontend run seed:test-users",
     "backend:check": "cd backend && python manage.py check",
     "backend:seed": "cd backend && python manage.py seed_test_users",
+    "backend:verify-super-admin": "cd backend && python manage.py verify_super_admin_data",
     "backend:dev": "cd backend && python manage.py runserver 127.0.0.1:8000"
   },
   "dependencies": {

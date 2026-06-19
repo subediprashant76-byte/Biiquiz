@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 from uuid import UUID
 
 CORRECT_OPTIONS = {"A", "B", "C", "D"}
 VISIBILITIES = {"private", "organization", "public"}
 SCORING_MODES = {"simple", "speed_bonus"}
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class ValidationError(ValueError):
@@ -66,6 +68,44 @@ def as_uuid(value: Any, key: str = "id") -> str:
         return str(UUID(str(value)))
     except (TypeError, ValueError) as exc:
         raise ValidationError(f"{key} must be a valid UUID.") from exc
+
+
+def validate_email(value: Any, key: str = "email") -> str:
+    email = str(value or "").strip().lower()
+    if not email:
+        raise ValidationError(f"{key} is required.")
+    if len(email) > 180 or not EMAIL_RE.match(email):
+        raise ValidationError("Enter a valid email address.")
+    domain = email.rsplit("@", 1)[-1]
+    if "." not in domain or domain.startswith(".") or domain.endswith("."):
+        raise ValidationError("Enter a valid email domain.")
+    return email
+
+
+def validate_password(value: Any, key: str = "password") -> str:
+    password = str(value or "")
+    if len(password) < 8:
+        raise ValidationError("Password must be at least 8 characters.")
+    if len(password) > 128:
+        raise ValidationError("Password is too long.")
+    if password.lower() in {"password", "password123", "12345678", "qwerty123", "admin1234"}:
+        raise ValidationError("Password is too easy to guess.")
+    checks = [
+        any(char.islower() for char in password),
+        any(char.isupper() for char in password),
+        any(char.isdigit() for char in password),
+        any(not char.isalnum() for char in password),
+    ]
+    if sum(checks) < 3:
+        raise ValidationError("Password must include at least 3 of: uppercase, lowercase, number, symbol.")
+    return password
+
+
+def validate_otp(value: Any) -> str:
+    code = str(value or "").strip()
+    if not re.fullmatch(r"\d{6}", code):
+        raise ValidationError("OTP code must be 6 digits.")
+    return code
 
 
 def validate_quiz_create(data: dict[str, Any]) -> dict[str, Any]:

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, RotateCcw, Save, Send, Trash2 } from "lucide-react";
 import { GeminiKeyManager } from "@/components/ai/gemini-key-manager";
@@ -42,12 +42,12 @@ export function AiPreview({ generationId }: { generationId: string }) {
   const [keys, setKeys] = useState<string[]>([]);
   const [repairing, setRepairing] = useState(false);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const response = await fetch(`/api/ai/generations/${generationId}`);
     const body = (await response.json()) as { ok: boolean; data?: Generation; error?: { message: string } };
     if (body.ok && body.data) setGeneration(body.data);
     else setMessage(body.error?.message ?? "Could not load AI preview.");
-  }
+  }, [generationId]);
 
   async function publish() {
     if (!generation || !["ready_for_preview", "repaired"].includes(generation.status)) {
@@ -96,7 +96,7 @@ export function AiPreview({ generationId }: { generationId: string }) {
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   return (
     <div className="grid gap-4">

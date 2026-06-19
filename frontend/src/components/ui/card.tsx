@@ -6,9 +6,9 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
 }
 
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={clsx("border-b border-slate-100 p-5 sm:p-6", className)} {...props} />;
+  return <div className={clsx("border-b border-slate-100 p-4 sm:p-5", className)} {...props} />;
 }
 
 export function CardBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={clsx("p-5 sm:p-6", className)} {...props} />;
+  return <div className={clsx("p-4 sm:p-5", className)} {...props} />;
 }

@@ -12,6 +12,12 @@ class Organization(models.Model):
     plan = models.CharField(max_length=32, default="free")
     branding_json = models.JSONField(null=True, blank=True)
     settings_json = models.JSONField(null=True, blank=True)
+    status = models.CharField(max_length=32, default="active")
+    is_sample = models.BooleanField(default=False)
+    suspension_reason = models.TextField(null=True, blank=True)
+    suspended_at = models.DateTimeField(null=True, blank=True)
+    primary_contact_name = models.CharField(max_length=255, null=True, blank=True)
+    primary_contact_email = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
 
@@ -35,6 +41,19 @@ class User(models.Model):
     class Meta:
         managed = False
         db_table = "users"
+
+
+class PasswordResetOtp(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id", related_name="password_reset_otps")
+    code_hash = models.CharField(max_length=255)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "password_reset_otps"
 
 
 class Quiz(models.Model):
@@ -315,3 +334,161 @@ class OrganizationDailyStat(models.Model):
         managed = False
         db_table = "organization_daily_stats"
         unique_together = (("organization", "stat_date"),)
+
+
+class Plan(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    code = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True)
+    price_cents = models.IntegerField(default=0)
+    currency = models.CharField(max_length=8, default="USD")
+    is_active = models.BooleanField(default=True)
+    host_limit = models.IntegerField()
+    student_limit = models.IntegerField()
+    quiz_limit = models.IntegerField()
+    room_limit = models.IntegerField()
+    storage_limit_mb = models.IntegerField(default=1024)
+    ai_access_mode = models.CharField(max_length=32, default="byok")
+    ai_monthly_question_limit = models.IntegerField(default=0)
+    features_json = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "plans"
+
+
+class OrganizationSubscription(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    organization = models.OneToOneField(Organization, on_delete=models.CASCADE, db_column="organization_id", related_name="subscription")
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, db_column="plan_id", related_name="subscriptions")
+    status = models.CharField(max_length=32, default="active")
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "organization_subscriptions"
+
+
+class UpgradeRequest(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_column="organization_id", related_name="upgrade_requests")
+    requested_plan = models.ForeignKey(Plan, on_delete=models.PROTECT, db_column="requested_plan_id", related_name="upgrade_requests")
+    requested_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, db_column="requested_by_user_id", related_name="upgrade_requests_created")
+    status = models.CharField(max_length=32, default="pending")
+    request_note = models.TextField(null=True, blank=True)
+    admin_note = models.TextField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, db_column="reviewed_by_user_id", related_name="upgrade_requests_reviewed")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "upgrade_requests"
+
+
+class ManualPayment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_column="organization_id", related_name="manual_payments")
+    upgrade_request = models.ForeignKey(UpgradeRequest, null=True, blank=True, on_delete=models.SET_NULL, db_column="upgrade_request_id", related_name="payments")
+    payer_name = models.CharField(max_length=255)
+    transaction_id = models.CharField(max_length=255, unique=True)
+    amount_cents = models.IntegerField()
+    currency = models.CharField(max_length=8, default="USD")
+    note = models.TextField(null=True, blank=True)
+    proof_image_path = models.TextField(null=True, blank=True)
+    status = models.CharField(max_length=32, default="pending")
+    admin_note = models.TextField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, db_column="reviewed_by_user_id", related_name="payments_reviewed")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "manual_payments"
+
+
+class TenantDomain(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_column="organization_id", related_name="domains")
+    domain = models.CharField(max_length=255, unique=True)
+    is_primary = models.BooleanField(default=False)
+    is_system_domain = models.BooleanField(default=False)
+    dns_status = models.CharField(max_length=32, default="pending")
+    ssl_status = models.CharField(max_length=32, default="pending")
+    website_status = models.CharField(max_length=32, default="provisioning")
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "tenant_domains"
+
+
+class SupportTicket(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    organization = models.ForeignKey(Organization, null=True, blank=True, on_delete=models.SET_NULL, db_column="organization_id", related_name="support_tickets")
+    opened_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, db_column="opened_by_user_id", related_name="support_tickets_opened")
+    assigned_to = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, db_column="assigned_to_user_id", related_name="support_tickets_assigned")
+    ticket_number = models.CharField(max_length=64, unique=True)
+    subject = models.CharField(max_length=255)
+    description = models.TextField()
+    priority = models.CharField(max_length=32, default="medium")
+    status = models.CharField(max_length=32, default="open")
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "support_tickets"
+
+
+class SupportTicketMessage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, db_column="ticket_id", related_name="messages")
+    author = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, db_column="author_user_id", related_name="support_messages")
+    message = models.TextField()
+    is_internal = models.BooleanField(default=False)
+    created_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "support_ticket_messages"
+
+
+class PlatformSetting(models.Model):
+    id = models.CharField(primary_key=True, max_length=64, default="global")
+    branding = models.CharField(max_length=255, default="biiQuiz")
+    default_plan_code = models.CharField(max_length=64, default="free")
+    default_participant_limit = models.IntegerField(default=50)
+    payment_qr_image_path = models.TextField(default="/payment.png")
+    maintenance_mode = models.BooleanField(default=False)
+    registration_enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "platform_settings"
+
+
+class AiPlatformSetting(models.Model):
+    id = models.CharField(primary_key=True, max_length=64, default="global")
+    primary_model = models.CharField(max_length=255, default="gemini-2.5-flash")
+    fallback_model = models.CharField(max_length=255, default="gemini-2.0-flash")
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "ai_platform_settings"

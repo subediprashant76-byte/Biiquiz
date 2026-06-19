@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   BarChart3,
   Bell,
@@ -12,11 +13,13 @@ import {
   Home,
   KeyRound,
   LifeBuoy,
+  LogOut,
   RadioTower,
   Search,
   Settings,
   ShieldCheck,
   Sparkles,
+  UserCircle,
   Users
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -148,7 +151,7 @@ export function WorkspaceShell({
               </button>
               {mode === "host" ? <LinkButton href="/dashboard/quizzes/create" size="sm"><RadioTower size={15} />Host a Quiz</LinkButton> : null}
               {mode === "organization" ? <LinkButton href="/dashboard" variant="secondary" size="sm">Host workspace</LinkButton> : null}
-              <div className="grid size-10 place-items-center rounded-full bg-brand-100 text-sm font-black text-brand-700">BS</div>
+              <AccountMenu />
             </div>
           </div>
         </header>
@@ -165,6 +168,63 @@ export function WorkspaceShell({
           {children}
         </main>
       </div>
+    </div>
+  );
+}
+
+function AccountMenu() {
+  const router = useRouter();
+  const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/auth/me")
+      .then((response) => response.json())
+      .then((body) => {
+        const value = body?.data?.user ?? body?.data ?? null;
+        if (mounted && value?.email) setUser(value);
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
+
+  const initials = user?.name
+    ? user.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()
+    : "BQ";
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-label="Account menu"
+        onClick={() => setOpen((value) => !value)}
+        className="focus-ring grid size-10 place-items-center rounded-full bg-brand-100 text-sm font-black text-brand-700"
+      >
+        {initials}
+      </button>
+      {open ? (
+        <div className="absolute right-0 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-lifted">
+          <div className="px-3 py-2">
+            <p className="truncate font-black text-ink">{user?.name ?? "Account"}</p>
+            <p className="truncate text-xs font-semibold text-slate-500">{user?.email ?? "Signed in"}</p>
+          </div>
+          <Link href="/profile" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50" onClick={() => setOpen(false)}>
+            <UserCircle size={16} />Profile
+          </Link>
+          <button type="button" onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold text-red-700 hover:bg-red-50">
+            <LogOut size={16} />Logout
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

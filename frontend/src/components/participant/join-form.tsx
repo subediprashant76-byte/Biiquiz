@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/form";
 
-export function JoinForm() {
+export function JoinForm({ initialRoomCode = "" }: { initialRoomCode?: string }) {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,7 +38,7 @@ export function JoinForm() {
           <Field label="Room code">
             <div className="relative">
               <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-              <Input name="roomCode" required placeholder="A7K2Q9" className="pl-10 text-center text-xl font-black uppercase tracking-[0.25em]" />
+              <Input name="roomCode" required placeholder="A7K2Q9" defaultValue={initialRoomCode.toUpperCase()} className="pl-10 text-center text-xl font-black uppercase tracking-[0.25em]" />
             </div>
           </Field>
           <Field label="Participant name">

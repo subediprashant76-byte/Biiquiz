@@ -60,3 +60,16 @@ PARTICIPANT_COOKIE_PREFIX = "biiquiz_participant"
 SESSION_DAYS = 14
 PARTICIPANT_HOURS = 12
 PRISMA_SCHEMA_PATH = ROOT_DIR / "prisma" / "schema.prisma"
+
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "").strip() or EMAIL_HOST_USER or "biiQuiz <no-reply@biiquiz.com>"
+if DEFAULT_FROM_EMAIL == "biiQuiz <no-reply@biiquiz.com>" and EMAIL_HOST_USER:
+    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "15"))
+APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:3000")
+PASSWORD_RESET_OTP_MINUTES = int(os.getenv("PASSWORD_RESET_OTP_MINUTES", "10"))

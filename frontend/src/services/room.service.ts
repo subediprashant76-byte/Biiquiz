@@ -57,6 +57,17 @@ export async function getRoom(roomCode: string) {
     include: {
       quiz: { include: { questions: { orderBy: { orderNumber: "asc" } } } },
       currentQuestion: true,
+      participants: {
+        orderBy: { joinedAt: "asc" },
+        select: {
+          id: true,
+          displayName: true,
+          score: true,
+          attemptedCount: true,
+          joinedAt: true,
+          lastSeenAt: true
+        }
+      },
       _count: { select: { participants: true } }
     }
   });
@@ -167,8 +178,9 @@ export async function endRoom(user: SessionUser, roomCode: string) {
     where: { id: room.id },
     data: { status: "ended", endedAt: new Date() }
   });
-  await delCache(roomStateKey(roomCode));
+  await delCache(roomStateKey(roomCode), leaderboardKey(roomCode));
   await broadcast(roomCode, "room:ended", { roomCode });
+  await broadcast(roomCode, "leaderboard:updated", { roomCode });
   return updated;
 }
 
@@ -271,4 +283,3 @@ async function createUniqueRoomCode() {
   }
   throw new Error("Could not generate a unique room code.");
 }
-

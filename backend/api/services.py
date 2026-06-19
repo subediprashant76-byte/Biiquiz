@@ -5,9 +5,13 @@ import io
 import random
 import string
 import uuid
+from collections import Counter
 from datetime import timedelta
 from typing import Any
+from urllib.parse import urlencode
 
+from django.conf import settings
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, F, Max, Q
 from django.http import HttpResponse
@@ -21,8 +25,10 @@ from api.models import (
     Answer,
     AuditLog,
     HostPass,
+    Organization,
     OrganizationDailyStat,
     OrganizationInvite,
+    PasswordResetOtp,
     Participant,
     ParticipantRoomSummary,
     Question,
@@ -33,6 +39,7 @@ from api.models import (
 )
 from api.serializers import ai_generation_json, participant_json, question_json, quiz_json, room_json, user_json
 from api.validation import validate_generated_quiz_json
+from api import super_admin_services
 
 
 def create_user(data: dict[str, Any]) -> User:
@@ -52,6 +59,29 @@ def create_user(data: dict[str, Any]) -> User:
     )
 
 
+def update_profile(user: User, data: dict[str, Any]) -> User:
+    email = str(data.get("email", user.email)).strip().lower()
+    name = str(data.get("name", user.name)).strip()
+    if not name:
+        raise ValueError("Name is required.")
+    existing = User.objects.filter(email=email).exclude(id=user.id).first()
+    if existing:
+        raise ValueError("An account already exists for this email.")
+    user.name = name
+    user.email = email
+    user.updated_at = timezone.now()
+    user.save(update_fields=["name", "email", "updated_at"])
+    return user
+
+
+def change_password(user: User, current_password: str, new_password: str) -> None:
+    if not verify_password(current_password, user.password_hash):
+        raise ValueError("Current password is incorrect.")
+    user.password_hash = hash_password(new_password)
+    user.updated_at = timezone.now()
+    user.save(update_fields=["password_hash", "updated_at"])
+
+
 def login_user(email: str, password: str) -> User:
     try:
         user = User.objects.get(email=email.strip().lower(), is_active=True)
@@ -63,6 +93,57 @@ def login_user(email: str, password: str) -> User:
     user.updated_at = timezone.now()
     user.save(update_fields=["last_login_at", "updated_at"])
     return user
+
+
+def request_password_reset(email: str) -> dict[str, Any]:
+    user = User.objects.filter(email=email.strip().lower(), is_active=True).first()
+    if not user:
+        return {"sent": True}
+    now = timezone.now()
+    code = "".join(random.choice(string.digits) for _ in range(6))
+    PasswordResetOtp.objects.filter(user=user, used_at__isnull=True, expires_at__gt=now).update(used_at=now)
+    PasswordResetOtp.objects.create(
+        id=uuid.uuid4(),
+        user=user,
+        code_hash=hash_token(code),
+        expires_at=now + timedelta(minutes=settings.PASSWORD_RESET_OTP_MINUTES),
+        created_at=now,
+    )
+    reset_url = f"{settings.APP_BASE_URL.rstrip('/')}/reset-password?{urlencode({'email': user.email, 'code': code})}"
+    send_mail(
+        subject="Reset your biiQuiz password",
+        message=(
+            f"Use this 6-digit code to reset your biiQuiz password: {code}\n\n"
+            f"The code expires in {settings.PASSWORD_RESET_OTP_MINUTES} minutes.\n\n"
+            f"Reset link: {reset_url}\n\n"
+            "If you did not request this, you can ignore this email."
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+    return {"sent": True, "expiresInMinutes": settings.PASSWORD_RESET_OTP_MINUTES}
+
+
+def reset_password_with_otp(email: str, code: str, new_password: str) -> None:
+    now = timezone.now()
+    user = User.objects.filter(email=email.strip().lower(), is_active=True).first()
+    if not user:
+        raise ValueError("Invalid or expired reset code.")
+    otp = PasswordResetOtp.objects.filter(
+        user=user,
+        code_hash=hash_token(code),
+        used_at__isnull=True,
+        expires_at__gt=now,
+    ).order_by("-created_at").first()
+    if not otp:
+        raise ValueError("Invalid or expired reset code.")
+    user.password_hash = hash_password(new_password)
+    user.updated_at = now
+    user.save(update_fields=["password_hash", "updated_at"])
+    otp.used_at = now
+    otp.save(update_fields=["used_at"])
+    PasswordResetOtp.objects.filter(user=user, used_at__isnull=True).update(used_at=now)
 
 
 def list_quizzes(user: User) -> list[dict[str, Any]]:
@@ -305,6 +386,8 @@ def submit_answer(room_code: str, participant_token: str | None, data: dict[str,
         participant = Participant.objects.select_for_update().filter(room=room, join_token_hash=token_hash).first()
         if not participant:
             raise ValueError("Participant session not found.")
+        if room.status != "active":
+            raise ValueError("Room is not accepting answers.")
         if not room.current_question:
             raise ValueError("No active question.")
         if str(room.current_question_id) != str(data["question_id"]):
@@ -338,27 +421,45 @@ def submit_answer(room_code: str, participant_token: str | None, data: dict[str,
     return answer, score
 
 
-def leaderboard(room_code: str) -> list[dict[str, Any]]:
+def build_room_leaderboard(room_code: str, participant_token: str | None = None) -> dict[str, Any]:
     room = get_room_by_code(room_code)
+    total_questions = Question.objects.filter(quiz_id=room.quiz_id).count()
+    participant_token_hash = hash_token(participant_token) if participant_token else None
     rows = []
-    participants = Participant.objects.filter(room=room).order_by("-score", "total_response_time_ms", "joined_at")[:500]
+    participants = Participant.objects.filter(room=room).order_by("-score", "-correct_count", "total_response_time_ms", "joined_at")[:500]
     for index, participant in enumerate(participants, 1):
         rows.append({
             "rank": index,
+            "userId": str(participant.id),
             "participantId": str(participant.id),
+            "name": participant.display_name,
             "displayName": participant.display_name,
             "score": participant.score,
+            "correct": participant.correct_count,
             "correctCount": participant.correct_count,
             "wrongCount": participant.wrong_count,
+            "attempted": participant.attempted_count,
             "attemptedCount": participant.attempted_count,
+            "totalQuestions": total_questions,
+            "timeTakenSeconds": int((participant.total_response_time_ms + 999) / 1000),
+            "isCurrentUser": participant_token_hash == participant.join_token_hash if participant_token_hash else False,
             "accuracyPercent": 0 if participant.attempted_count == 0 else round(participant.correct_count / participant.attempted_count * 100),
             "totalResponseTimeMs": participant.total_response_time_ms,
         })
-    return rows
+    return {
+        "roomId": str(room.id),
+        "quizId": str(room.quiz_id),
+        "quizStatus": "live" if room.status == "active" else room.status,
+        "leaderboard": rows,
+    }
+
+
+def leaderboard(room_code: str) -> list[dict[str, Any]]:
+    return build_room_leaderboard(room_code)["leaderboard"]
 
 
 def results_csv(room_code: str) -> HttpResponse:
-    rows = leaderboard(room_code)
+    rows = build_room_leaderboard(room_code)["leaderboard"]
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=["rank", "participant", "score", "correct", "wrong", "attempted", "accuracy_percent", "total_response_time_ms"])
     writer.writeheader()
@@ -638,6 +739,142 @@ def host_analytics(user: User) -> dict[str, Any]:
             [room.room_name, getattr(room, "participants_count", 0), f"{_room_accuracy([str(room.id)])}%", room.status.title()]
             for room in recent_rooms
         ],
+        "recentRoomDetails": [
+            {
+                "id": str(room.id),
+                "roomCode": room.room_code,
+                "roomName": room.room_name,
+                "quizTitle": room.quiz.title,
+                "participants": getattr(room, "participants_count", 0),
+                "accuracy": f"{_room_accuracy([str(room.id)])}%",
+                "status": room.status.title(),
+                "createdAt": room.created_at.isoformat(),
+            }
+            for room in recent_rooms
+        ],
+    }
+
+
+def host_room_analytics(user: User, room_id: str) -> dict[str, Any]:
+    try:
+        room = Room.objects.select_related("quiz", "host").get(id=room_id)
+    except Room.DoesNotExist as exc:
+        raise ValueError("Room not found.") from exc
+    if user.role != "admin" and room.host_id != user.id:
+        raise PermissionError("You cannot view analytics for this room.")
+
+    questions = list(Question.objects.filter(quiz=room.quiz).order_by("order_number"))
+    total_questions = len(questions)
+    participants = list(Participant.objects.filter(room=room).order_by("joined_at"))
+    answers = list(Answer.objects.filter(room=room).select_related("participant", "question").order_by("answered_at"))
+    answers_by_participant: dict[str, list[Answer]] = {}
+    answers_by_question: dict[str, list[Answer]] = {}
+    for answer in answers:
+        answers_by_participant.setdefault(str(answer.participant_id), []).append(answer)
+        answers_by_question.setdefault(str(answer.question_id), []).append(answer)
+
+    leaderboard_rows = build_room_leaderboard(room.room_code)["leaderboard"]
+    latest_answer_by_participant = {
+        participant_id: max(items, key=lambda item: item.answered_at)
+        for participant_id, items in answers_by_participant.items()
+    }
+    for row in leaderboard_rows:
+        latest = latest_answer_by_participant.get(row["participantId"])
+        row["submittedAt"] = latest.answered_at.isoformat() if latest else None
+
+    attempted_scores = [participant.score for participant in participants if participant.attempted_count > 0]
+    completed_count = sum(1 for participant in participants if total_questions > 0 and participant.attempted_count >= total_questions)
+    total_attempted = sum(participant.attempted_count for participant in participants)
+    total_correct = sum(participant.correct_count for participant in participants)
+    average_score = round(sum(participant.score for participant in participants) / len(participants), 1) if participants else 0
+    average_accuracy = _pct(total_correct, total_attempted)
+    completion_rate = _pct(completed_count, len(participants))
+
+    participant_rows = []
+    for participant in participants:
+        latest = latest_answer_by_participant.get(str(participant.id))
+        if total_questions > 0 and participant.attempted_count >= total_questions:
+            status = "completed"
+        elif participant.attempted_count > 0:
+            status = "submitted"
+        else:
+            status = "joined"
+        participant_rows.append({
+            "participantId": str(participant.id),
+            "name": participant.display_name,
+            "joinedAt": participant.joined_at.isoformat(),
+            "status": status,
+            "score": participant.score,
+            "lastActivity": (latest.answered_at if latest else participant.last_seen_at or participant.joined_at).isoformat(),
+        })
+
+    question_rows = []
+    for question in questions:
+        question_answers = answers_by_question.get(str(question.id), [])
+        option_counts = Counter(answer.selected_option for answer in question_answers)
+        attempted = len(question_answers)
+        correct = sum(1 for answer in question_answers if answer.is_correct)
+        wrong = attempted - correct
+        wrong_options = {key: value for key, value in option_counts.items() if key != question.correct_option}
+        most_wrong = max(wrong_options.items(), key=lambda item: item[1])[0] if wrong_options else None
+        avg_ms = sum(answer.response_time_ms for answer in question_answers) / attempted if attempted else 0
+        question_rows.append({
+            "questionId": str(question.id),
+            "questionText": question.question_text,
+            "correctAnswer": question.correct_option,
+            "correctPercentage": _pct(correct, attempted),
+            "wrongPercentage": _pct(wrong, attempted),
+            "optionCounts": {option: option_counts.get(option, 0) for option in ["A", "B", "C", "D"]},
+            "mostSelectedWrongOption": most_wrong,
+            "averageTimeSeconds": round(avg_ms / 1000, 1),
+            "attempted": attempted,
+        })
+
+    answered_questions = [item for item in question_rows if item["attempted"] > 0]
+    hardest = min(answered_questions, key=lambda item: item["correctPercentage"], default=None)
+    easiest = max(answered_questions, key=lambda item: item["correctPercentage"], default=None)
+    top = leaderboard_rows[0] if leaderboard_rows else None
+    incomplete = [participant for participant in participants if total_questions > 0 and participant.attempted_count < total_questions]
+    insights = []
+    if hardest:
+        insights.append({"title": "Hardest question", "detail": f"{hardest['correctPercentage']}% correct: {hardest['questionText'][:120]}"})
+    if easiest:
+        insights.append({"title": "Easiest question", "detail": f"{easiest['correctPercentage']}% correct: {easiest['questionText'][:120]}"})
+    if top:
+        insights.append({"title": "Top performer", "detail": f"{top['displayName']} scored {top['score']} with {top['correct']} correct."})
+    if incomplete:
+        insights.append({"title": "Incomplete attempts", "detail": f"{len(incomplete)} participant(s) did not complete all questions."})
+    if average_accuracy < 50 and total_attempted > 0:
+        insights.append({"title": "Low accuracy warning", "detail": f"Average accuracy is {average_accuracy}%. Consider reviewing this topic."})
+    if not insights:
+        insights.append({"title": "No results yet", "detail": "Insights will appear after students submit answers."})
+
+    return {
+        "room": {
+            "id": str(room.id),
+            "roomCode": room.room_code,
+            "name": room.room_name,
+            "quizTitle": room.quiz.title,
+            "status": "live" if room.status == "active" else room.status,
+            "createdAt": room.created_at.isoformat(),
+            "hostName": room.host.name,
+            "totalQuestions": total_questions,
+            "totalParticipants": len(participants),
+        },
+        "summary": {
+            "participants": len(participants),
+            "completed": completed_count,
+            "averageScore": average_score,
+            "averageAccuracy": average_accuracy,
+            "highestScore": max(attempted_scores) if attempted_scores else 0,
+            "lowestScore": min(attempted_scores) if attempted_scores else 0,
+            "completionRate": completion_rate,
+        },
+        "winner": leaderboard_rows[0] if leaderboard_rows else None,
+        "leaderboard": leaderboard_rows,
+        "participants": participant_rows,
+        "questions": question_rows,
+        "insights": insights,
     }
 
 
@@ -873,3 +1110,256 @@ def admin_knowledge_gaps() -> dict[str, Any]:
         ],
         "gaps": gaps,
     }
+
+
+SUPER_ADMIN_SECTIONS = {
+    "dashboard",
+    "enterprises",
+    "hosts",
+    "students",
+    "quizzes",
+    "rooms",
+    "analytics",
+    "plans",
+    "upgrade-requests",
+    "payments",
+    "domains",
+    "ai-settings",
+    "support",
+    "audit-logs",
+    "settings",
+}
+
+
+def super_admin_payload(section: str, query: dict[str, Any] | None = None) -> dict[str, Any]:
+    return super_admin_services.payload(section, query)
+
+
+def super_admin_enterprise_detail(enterprise_id: str, query: dict[str, Any] | None = None) -> dict[str, Any]:
+    return super_admin_services.enterprise_detail(enterprise_id, query)
+
+
+def super_admin_action(admin: User, section: str, item_id: str, action: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
+    return super_admin_services.action(admin, section, item_id, action, data)
+
+
+def super_admin_update_section(admin: User, section: str, data: dict[str, Any]) -> dict[str, Any]:
+    return super_admin_services.update_section(admin, section, data)
+
+
+def super_admin_export(section: str, query: dict[str, Any] | None = None) -> HttpResponse:
+    return super_admin_services.export_csv(section, query)
+
+
+def _super_admin_dashboard() -> dict[str, Any]:
+    orgs = Organization.objects.exclude(slug="platform")
+    active_rooms = Room.objects.filter(status="active")
+    recent_audit = AuditLog.objects.select_related("actor", "organization").order_by("-created_at")[:8]
+    pending_payments = _super_admin_payments()["rows"]
+    return {
+        "stats": [
+            {"label": "Enterprises", "value": orgs.count(), "detail": "Tenants on platform", "tone": "blue"},
+            {"label": "Live rooms", "value": active_rooms.count(), "detail": "Running now", "tone": "green"},
+            {"label": "Pending payments", "value": len([row for row in pending_payments if row["status"] == "Pending"]), "detail": "Manual review queue", "tone": "orange"},
+            {"label": "Usage alerts", "value": len(_usage_alerts()), "detail": "Limits above 80%", "tone": "red"},
+        ],
+        "pendingApprovals": _super_admin_upgrade_requests()["rows"][:6],
+        "pendingPayments": pending_payments[:6],
+        "usageAlerts": _usage_alerts()[:6],
+        "recentActivity": _audit_rows(recent_audit),
+        "topEnterprises": [_enterprise_row(org) for org in orgs.order_by("-created_at")[:6]],
+    }
+
+
+def _super_admin_enterprises(search: str = "") -> dict[str, Any]:
+    qs = Organization.objects.exclude(slug="platform").order_by("-created_at")
+    if search:
+        qs = qs.filter(Q(name__icontains=search) | Q(slug__icontains=search))
+    rows = [_enterprise_row(org) for org in qs[:100]]
+    return {"rows": rows, "stats": [{"label": "Total enterprises", "value": qs.count()}, {"label": "Active", "value": len([row for row in rows if row["status"] == "Active"])}, {"label": "Suspended", "value": len([row for row in rows if row["status"] == "Suspended"])}]}
+
+
+def _super_admin_users(role: str, search: str = "") -> dict[str, Any]:
+    qs = User.objects.filter(role=role).select_related("organization").order_by("-created_at")
+    if search:
+        qs = qs.filter(Q(name__icontains=search) | Q(email__icontains=search) | Q(organization__name__icontains=search))
+    return {"rows": [_user_row(user) for user in qs[:120]], "stats": [{"label": f"Total {role}s", "value": qs.count()}, {"label": "Active", "value": qs.filter(is_active=True).count()}, {"label": "Inactive", "value": qs.filter(is_active=False).count()}]}
+
+
+def _super_admin_students(search: str = "") -> dict[str, Any]:
+    qs = Participant.objects.select_related("room", "room__organization").order_by("-joined_at")
+    if search:
+        qs = qs.filter(Q(display_name__icontains=search) | Q(room__room_code__icontains=search) | Q(room__organization__name__icontains=search))
+    return {"rows": _student_rows(qs[:120]), "stats": [{"label": "Joined students", "value": qs.count()}, {"label": "Submitted", "value": qs.filter(attempted_count__gt=0).count()}, {"label": "Avg score", "value": round(qs.aggregate(avg=Avg("score"))["avg"] or 0)}]}
+
+
+def _super_admin_quizzes(search: str = "") -> dict[str, Any]:
+    qs = Quiz.objects.select_related("host", "organization").annotate(questions_count=Count("questions"), rooms_count=Count("rooms")).order_by("-updated_at")
+    if search:
+        qs = qs.filter(Q(title__icontains=search) | Q(host__name__icontains=search) | Q(organization__name__icontains=search))
+    return {"rows": [_quiz_row(quiz) for quiz in qs[:120]], "stats": [{"label": "Quizzes", "value": qs.count()}, {"label": "Published", "value": qs.filter(status="published").count()}, {"label": "Draft", "value": qs.filter(status="draft").count()}]}
+
+
+def _super_admin_rooms(search: str = "") -> dict[str, Any]:
+    qs = Room.objects.select_related("quiz", "host", "organization").annotate(participants_count=Count("participants")).order_by("-created_at")
+    if search:
+        qs = qs.filter(Q(room_name__icontains=search) | Q(room_code__icontains=search) | Q(quiz__title__icontains=search) | Q(organization__name__icontains=search))
+    return {"rows": [_room_row(room) for room in qs[:120]], "stats": [{"label": "Rooms", "value": qs.count()}, {"label": "Live", "value": qs.filter(status="active").count()}, {"label": "Ended", "value": qs.filter(status="ended").count()}]}
+
+
+def _super_admin_analytics() -> dict[str, Any]:
+    orgs = Organization.objects.exclude(slug="platform").count()
+    rooms = Room.objects.count()
+    answers = Answer.objects.count()
+    participants = Participant.objects.count()
+    return {
+        "stats": [
+            {"label": "Platform growth", "value": orgs, "detail": "Enterprises"},
+            {"label": "Engagement", "value": participants, "detail": "Participants joined"},
+            {"label": "Answers", "value": answers, "detail": "Submitted answers"},
+            {"label": "Manual revenue", "value": f"${HostPass.objects.count() * 29}", "detail": "Estimated from passes"},
+        ],
+        "enterpriseComparison": [_enterprise_row(org) for org in Organization.objects.exclude(slug="platform").order_by("-created_at")[:10]],
+        "hostActivity": [_user_row(user) for user in User.objects.filter(role="host").order_by("-last_login_at")[:10]],
+        "planUsage": [{"label": plan, "value": Organization.objects.exclude(slug="platform").filter(plan=plan).count()} for plan in ["free", "school", "enterprise"]],
+    }
+
+
+def _super_admin_plans() -> dict[str, Any]:
+    plans = [
+        {"id": "free", "name": "Free", "price": "$0", "hosts": 1, "students": 50, "quizzes": 20, "rooms": 10, "ai": "BYOK only", "features": ["Live rooms", "BYOK AI", "CSV export"]},
+        {"id": "school", "name": "School", "price": "$99", "hosts": 25, "students": 500, "quizzes": 1000, "rooms": 250, "ai": "Limited", "features": ["Org admins", "Branding", "Analytics"]},
+        {"id": "enterprise", "name": "Enterprise", "price": "Custom", "hosts": 250, "students": 5000, "quizzes": 10000, "rooms": 2000, "ai": "Package quota", "features": ["Domains", "Priority support", "Audit"]},
+    ]
+    return {"rows": plans, "stats": [{"label": "Plans", "value": len(plans)}, {"label": "Enterprise tenants", "value": Organization.objects.exclude(slug="platform").filter(plan="enterprise").count()}]}
+
+
+def _super_admin_upgrade_requests() -> dict[str, Any]:
+    rows = []
+    for org in Organization.objects.exclude(slug="platform").order_by("-updated_at")[:40]:
+        settings_json = org.settings_json or {}
+        if not settings_json.get("requestedPlan") and not settings_json.get("upgradeStatus"):
+            continue
+        rows.append({"id": str(org.id), "enterprise": org.name, "requestedPlan": settings_json.get("requestedPlan", "School"), "status": settings_json.get("upgradeStatus", "Pending"), "createdAt": org.updated_at.isoformat(), "adminNote": settings_json.get("upgradeAdminNote", "")})
+    return {"rows": rows, "stats": [{"label": "Pending", "value": len([row for row in rows if row["status"] == "Pending"])}, {"label": "Total requests", "value": len(rows)}]}
+
+
+def _super_admin_payments(org: Organization | None = None) -> dict[str, Any]:
+    orgs = [org] if org else list(Organization.objects.exclude(slug="platform").order_by("-updated_at")[:60])
+    rows = []
+    for item in orgs:
+        settings_json = item.settings_json or {}
+        payment = settings_json.get("payment", {})
+        if not payment:
+            continue
+        rows.append({"id": str(item.id), "enterprise": item.name, "payerName": payment.get("payerName", item.name), "transactionId": payment.get("transactionId", "-"), "amount": payment.get("amount", 0), "status": payment.get("status", "Pending"), "adminNote": payment.get("adminNote", "")})
+    return {"rows": rows, "stats": [{"label": "Pending payments", "value": len([row for row in rows if row["status"] == "Pending"])}, {"label": "Verified", "value": len([row for row in rows if row["status"] == "Verified"])}]}
+
+
+def _super_admin_domains(org: Organization | None = None) -> dict[str, Any]:
+    orgs = [org] if org else list(Organization.objects.exclude(slug="platform").order_by("-created_at")[:80])
+    rows = []
+    for item in orgs:
+        settings_json = item.settings_json or {}
+        domain = settings_json.get("domain") or f"{item.slug}.biiquiz.com"
+        rows.append({"id": str(item.id), "enterprise": item.name, "domain": domain, "dnsStatus": settings_json.get("dnsStatus", "Pending"), "sslStatus": settings_json.get("sslStatus", "Pending"), "websiteStatus": settings_json.get("websiteStatus", "Active" if item.plan != "free" else "Disabled")})
+    return {"rows": rows, "stats": [{"label": "Domains", "value": len(rows)}, {"label": "SSL verified", "value": len([row for row in rows if row["sslStatus"] == "Verified"])}]}
+
+
+def _super_admin_ai_settings() -> dict[str, Any]:
+    settings_json = (_platform_settings_org().settings_json or {}).get("aiSettings", {})
+    return {
+        "model": settings_json.get("model", "gemini-2.5-flash"),
+        "fallbackModel": settings_json.get("fallbackModel", "gemini-2.0-flash"),
+        "quota": [
+            {"plan": "free", "aiAccess": "BYOK", "monthlyQuestions": settings_json.get("freeMonthlyQuestions", 0)},
+            {"plan": "school", "aiAccess": "Enabled", "monthlyQuestions": settings_json.get("schoolMonthlyQuestions", 1000)},
+            {"plan": "enterprise", "aiAccess": "Enabled", "monthlyQuestions": settings_json.get("enterpriseMonthlyQuestions", 10000)},
+        ],
+        "usage": [{"label": row["model"] or "Unknown", "value": row["total"]} for row in AiUsageLog.objects.values("model").annotate(total=Count("id")).order_by("-total")[:8]],
+    }
+
+
+def _super_admin_support(org: Organization | None = None) -> dict[str, Any]:
+    qs = AuditLog.objects.filter(action__icontains="support").select_related("actor", "organization").order_by("-created_at")
+    if org:
+        qs = qs.filter(organization=org)
+    rows = [{"id": str(item.id), "subject": item.metadata_json.get("subject", "Support request") if item.metadata_json else "Support request", "enterprise": item.organization.name if item.organization else "Platform", "priority": (item.metadata_json or {}).get("priority", "Medium"), "status": (item.metadata_json or {}).get("status", "Open"), "createdAt": item.created_at.isoformat()} for item in qs[:80]]
+    return {"rows": rows, "stats": [{"label": "Open tickets", "value": len([row for row in rows if row["status"] != "Closed"])}, {"label": "Total", "value": len(rows)}]}
+
+
+def _super_admin_audit_logs() -> dict[str, Any]:
+    return {"rows": _audit_rows(AuditLog.objects.select_related("actor", "organization").order_by("-created_at")[:150]), "stats": [{"label": "Audit events", "value": AuditLog.objects.count()}]}
+
+
+def _super_admin_settings() -> dict[str, Any]:
+    root = _platform_settings_org()
+    settings_json = root.settings_json or {}
+    return {"settings": settings_json or {"branding": "biiQuiz", "defaultPlan": "free", "defaultLimit": 50, "paymentQrImage": "/payment.png", "maintenanceMode": False, "registrationEnabled": True}, "stats": [{"label": "Maintenance", "value": "On" if (settings_json or {}).get("maintenanceMode") else "Off"}, {"label": "Registration", "value": "Enabled" if (settings_json or {}).get("registrationEnabled", True) else "Disabled"}]}
+
+
+def _enterprise_row(org: Organization) -> dict[str, Any]:
+    settings_json = org.settings_json or {}
+    return {"id": str(org.id), "name": org.name, "slug": org.slug, "plan": org.plan, "status": str(settings_json.get("status", "Active")).title(), "createdAt": org.created_at.isoformat(), "usage": _enterprise_usage(org)}
+
+
+def _enterprise_usage(org: Organization) -> list[dict[str, Any]]:
+    hosts = User.objects.filter(organization=org, role="host").count()
+    students = Participant.objects.filter(room__organization=org).count()
+    quizzes = Quiz.objects.filter(organization=org).count()
+    rooms = Room.objects.filter(organization=org).count()
+    ai = AiUsageLog.objects.filter(organization=org).aggregate(total=Count("id"))["total"] or 0
+    limits = {"free": (1, 50, 20, 10, 100), "school": (25, 500, 1000, 250, 1000), "enterprise": (250, 5000, 10000, 2000, 10000)}
+    h, s, q, r, a = limits.get(org.plan, limits["free"])
+    return [{"label": "hosts", "used": hosts, "limit": h, "percent": _pct(hosts, h)}, {"label": "students", "used": students, "limit": s, "percent": _pct(students, s)}, {"label": "quizzes", "used": quizzes, "limit": q, "percent": _pct(quizzes, q)}, {"label": "rooms", "used": rooms, "limit": r, "percent": _pct(rooms, r)}, {"label": "AI usage", "used": ai, "limit": a, "percent": _pct(ai, a)}]
+
+
+def _usage_alerts() -> list[dict[str, Any]]:
+    alerts = []
+    for org in Organization.objects.exclude(slug="platform"):
+        for usage in _enterprise_usage(org):
+            if usage["percent"] >= 80:
+                alerts.append({"enterprise": org.name, "metric": usage["label"], "percent": usage["percent"], "status": "Warning" if usage["percent"] < 95 else "Critical"})
+    return alerts
+
+
+def _user_row(user: User) -> dict[str, Any]:
+    return {"id": str(user.id), "name": user.name, "email": user.email, "role": user.role, "enterprise": user.organization.name if user.organization else "Platform", "status": "Active" if user.is_active else "Suspended", "lastLoginAt": user.last_login_at.isoformat() if user.last_login_at else None, "createdAt": user.created_at.isoformat()}
+
+
+def _student_rows(qs) -> list[dict[str, Any]]:
+    return [{"id": str(item.id), "name": item.display_name, "enterprise": item.room.organization.name if item.room.organization else "Personal room", "room": item.room.room_name, "score": item.score, "correct": item.correct_count, "attempted": item.attempted_count, "status": "Active" if item.attempted_count else "Joined", "joinedAt": item.joined_at.isoformat()} for item in qs]
+
+
+def _quiz_row(quiz: Quiz) -> dict[str, Any]:
+    return {"id": str(quiz.id), "title": quiz.title, "status": quiz.status.title(), "host": quiz.host.name, "enterprise": quiz.organization.name if quiz.organization else "Personal", "questions": getattr(quiz, "questions_count", 0), "rooms": getattr(quiz, "rooms_count", 0), "updatedAt": quiz.updated_at.isoformat()}
+
+
+def _room_row(room: Room) -> dict[str, Any]:
+    winner = Participant.objects.filter(room=room).order_by("-score", "-correct_count", "total_response_time_ms").first()
+    return {"id": str(room.id), "roomCode": room.room_code, "name": room.room_name, "quiz": room.quiz.title, "enterprise": room.organization.name if room.organization else "Personal", "participants": getattr(room, "participants_count", 0), "winner": winner.display_name if winner else "-", "status": room.status.title(), "createdAt": room.created_at.isoformat()}
+
+
+def _audit_rows(qs) -> list[dict[str, Any]]:
+    return [{"id": str(item.id), "actor": item.actor.name if item.actor else "System", "action": item.action, "target": item.entity_type, "oldValue": (item.metadata_json or {}).get("oldValue", "-"), "newValue": (item.metadata_json or {}).get("newValue", "-"), "enterprise": item.organization.name if item.organization else "Platform", "timestamp": item.created_at.isoformat()} for item in qs]
+
+
+def _super_admin_audit(admin: User, action: str, entity_type: str, entity_id: Any, metadata: dict[str, Any] | None = None) -> None:
+    AuditLog.objects.create(id=uuid.uuid4(), actor=admin, organization_id=admin.organization_id, action=f"super_admin.{action}", entity_type=entity_type, entity_id=entity_id if entity_id else None, metadata_json=metadata or {}, created_at=timezone.now())
+
+
+def _platform_settings_org() -> Organization:
+    now = timezone.now()
+    platform, _ = Organization.objects.get_or_create(
+        slug="platform",
+        defaults={
+            "id": uuid.uuid4(),
+            "name": "Platform Settings",
+            "plan": "enterprise",
+            "branding_json": {},
+            "settings_json": {},
+            "created_at": now,
+            "updated_at": now,
+        },
+    )
+    return platform

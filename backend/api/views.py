@@ -5,7 +5,7 @@ from django.http import HttpRequest
 from django.views.decorators.csrf import csrf_exempt
 
 from api import services
-from api.auth import clear_session_cookie, get_participant_token, get_session_user, require_admin, require_host, set_participant_cookie, set_session_cookie
+from api.auth import clear_session_cookie, get_participant_token, get_session_user, require_host, require_organization_admin, require_super_admin, set_participant_cookie, set_session_cookie
 from api.models import AiQuestionDraft
 from api.prisma_contract import validate_prisma_contract
 from api.responses import fail, ok, validation_fail
@@ -18,6 +18,9 @@ from api.validation import (
     as_uuid,
     parse_json,
     validate_question,
+    validate_email,
+    validate_otp,
+    validate_password,
     validate_quiz_create,
     validate_room_create,
 )
@@ -45,8 +48,8 @@ def auth_register(request: HttpRequest):
         data = parse_json(request)
         payload = {
             "name": as_str(data, "name", min_len=2, max_len=120),
-            "email": as_str(data, "email", min_len=3, max_len=180),
-            "password": as_str(data, "password", min_len=8, max_len=128),
+            "email": validate_email(data.get("email")),
+            "password": validate_password(data.get("password")),
         }
         user = services.create_user(payload)
         response = ok(user_json(user), status=201)
@@ -61,7 +64,7 @@ def auth_login(request: HttpRequest):
         if request.method != "POST":
             return fail("Method not allowed.", status=405)
         data = parse_json(request)
-        user = services.login_user(as_str(data, "email"), as_str(data, "password", min_len=1, max_len=128))
+        user = services.login_user(validate_email(data.get("email")), as_str(data, "password", min_len=1, max_len=128))
         response = ok(user_json(user))
         return set_session_cookie(response, str(user.id))
 
@@ -77,6 +80,67 @@ def auth_logout(request: HttpRequest):
 def auth_me(request: HttpRequest):
     user = get_session_user(request)
     return ok(user_json(user) if user else None)
+
+
+@csrf_exempt
+def auth_profile(request: HttpRequest):
+    def run():
+        user = require_host(request)
+        if request.method == "GET":
+            return ok(user_json(user))
+        if request.method == "PATCH":
+            data = parse_json(request)
+            return ok(user_json(services.update_profile(user, {
+                "name": as_str(data, "name", min_len=2, max_len=120),
+                "email": validate_email(data.get("email")),
+            })))
+        return fail("Method not allowed.", status=405)
+
+    return handle(run)
+
+
+@csrf_exempt
+def auth_change_password(request: HttpRequest):
+    def run():
+        user = require_host(request)
+        if request.method != "POST":
+            return fail("Method not allowed.", status=405)
+        data = parse_json(request)
+        services.change_password(
+            user,
+            as_str(data, "currentPassword", min_len=1, max_len=128),
+            validate_password(data.get("newPassword")),
+        )
+        return ok({"changed": True})
+
+    return handle(run)
+
+
+@csrf_exempt
+def auth_forgot_password(request: HttpRequest):
+    def run():
+        if request.method != "POST":
+            return fail("Method not allowed.", status=405)
+        data = parse_json(request)
+        return ok(services.request_password_reset(validate_email(data.get("email"))))
+
+    return handle(run)
+
+
+@csrf_exempt
+def auth_reset_password(request: HttpRequest):
+    def run():
+        if request.method != "POST":
+            return fail("Method not allowed.", status=405)
+        data = parse_json(request)
+        services.reset_password_with_otp(
+            validate_email(data.get("email")),
+            validate_otp(data.get("code")),
+            validate_password(data.get("password")),
+        )
+        return ok({"reset": True})
+
+    return handle(run)
 
 
 @csrf_exempt
@@ -183,6 +247,11 @@ def room_action(request: HttpRequest, room_code: str, action: str):
         if action not in actions:
             return fail("Unknown room action.", status=404)
         room = actions[action](user, room_code)
+        if action == "end":
+            return ok({
+                "room": room_json(services.get_room_by_code(room.room_code)),
+                "leaderboard": services.build_room_leaderboard(room.room_code),
+            })
         return ok(room_json(services.get_room_by_code(room.room_code)))
 
     return handle(run)
@@ -207,7 +276,7 @@ def room_answer(request: HttpRequest, room_code: str):
 
 
 def leaderboard(request: HttpRequest, room_code: str):
-    return handle(lambda: ok(services.leaderboard(room_code)))
+    return handle(lambda: ok(services.build_room_leaderboard(room_code, get_participant_token(request, room_code))))
 
 
 def room_results_csv(request: HttpRequest, room_code: str):
@@ -279,7 +348,7 @@ def ai_draft_question(request: HttpRequest, draft_question_id: str | None = None
 
 
 def admin_overview(request: HttpRequest):
-    return handle(lambda: ok(services.admin_overview()) if require_admin(request) else ok({}))
+    return handle(lambda: ok(services.admin_overview()) if require_organization_admin(request) else ok({}))
 
 
 def host_dashboard(request: HttpRequest):
@@ -290,17 +359,21 @@ def host_analytics(request: HttpRequest):
     return handle(lambda: ok(services.host_analytics(require_host(request))))
 
 
+def host_room_analytics(request: HttpRequest, room_id: str):
+    return handle(lambda: ok(services.host_room_analytics(require_host(request), room_id)))
+
+
 def host_host_passes(request: HttpRequest):
     return handle(lambda: ok(services.host_host_passes(require_host(request))))
 
 
 def admin_users(request: HttpRequest):
-    return handle(lambda: ok(services.admin_users()) if require_admin(request) else ok([]))
+    return handle(lambda: ok(services.admin_users()) if require_organization_admin(request) else ok([]))
 
 
 def admin_host_passes(request: HttpRequest):
     def run():
-        admin = require_admin(request)
+        admin = require_organization_admin(request)
         if request.method == "GET":
             return ok(services.admin_host_passes())
         if request.method == "POST":
@@ -311,25 +384,25 @@ def admin_host_passes(request: HttpRequest):
 
 
 def admin_ai_usage(request: HttpRequest):
-    return handle(lambda: ok(services.admin_ai_usage()) if require_admin(request) else ok([]))
+    return handle(lambda: ok(services.admin_ai_usage()) if require_organization_admin(request) else ok([]))
 
 
 def admin_analytics(request: HttpRequest):
-    return handle(lambda: ok(services.admin_analytics()) if require_admin(request) else ok({}))
+    return handle(lambda: ok(services.admin_analytics()) if require_organization_admin(request) else ok({}))
 
 
 def admin_reports(request: HttpRequest):
-    return handle(lambda: ok(services.admin_reports()) if require_admin(request) else ok({}))
+    return handle(lambda: ok(services.admin_reports()) if require_organization_admin(request) else ok({}))
 
 
 def admin_host_analytics(request: HttpRequest, user_id: str):
-    return handle(lambda: ok(services.admin_host_analytics(user_id)) if require_admin(request) else ok({}))
+    return handle(lambda: ok(services.admin_host_analytics(user_id)) if require_organization_admin(request) else ok({}))
 
 
 @csrf_exempt
 def admin_organization_settings(request: HttpRequest):
     def run():
-        admin = require_admin(request)
+        admin = require_organization_admin(request)
         if request.method == "GET":
             return ok(services.admin_settings(admin))
         if request.method == "PATCH":
@@ -342,7 +415,7 @@ def admin_organization_settings(request: HttpRequest):
 @csrf_exempt
 def admin_invite_user(request: HttpRequest):
     def run():
-        admin = require_admin(request)
+        admin = require_organization_admin(request)
         if request.method != "POST":
             return fail("Method not allowed.", status=405)
         return ok(services.invite_user(admin, parse_json(request)), status=201)
@@ -351,12 +424,49 @@ def admin_invite_user(request: HttpRequest):
 
 
 def admin_workspace(request: HttpRequest):
-    return handle(lambda: ok(services.admin_workspace()) if require_admin(request) else ok({}))
+    return handle(lambda: ok(services.admin_workspace()) if require_organization_admin(request) else ok({}))
 
 
 def admin_proctoring(request: HttpRequest, room_code: str):
-    return handle(lambda: ok(services.admin_proctoring(room_code)) if require_admin(request) else ok({}))
+    return handle(lambda: ok(services.admin_proctoring(room_code)) if require_organization_admin(request) else ok({}))
 
 
 def admin_knowledge_gaps(request: HttpRequest):
-    return handle(lambda: ok(services.admin_knowledge_gaps()) if require_admin(request) else ok({}))
+    return handle(lambda: ok(services.admin_knowledge_gaps()) if require_organization_admin(request) else ok({}))
+
+
+def super_admin_collection(request: HttpRequest, section: str):
+    def run():
+        admin = require_super_admin(request)
+        if request.method == "GET":
+            return ok(services.super_admin_payload(section, request.GET))
+        if request.method in {"POST", "PATCH"}:
+            return ok(services.super_admin_update_section(admin, section, parse_json(request)))
+        return fail("Method not allowed.", status=405)
+
+    return handle(run)
+
+
+def super_admin_export(request: HttpRequest, section: str):
+    def run():
+        require_super_admin(request)
+        if request.method != "GET":
+            return fail("Method not allowed.", status=405)
+        return services.super_admin_export(section, request.GET)
+
+    return handle(run)
+
+
+def super_admin_enterprise_detail(request: HttpRequest, enterprise_id: str):
+    return handle(lambda: ok(services.super_admin_enterprise_detail(enterprise_id, request.GET)) if require_super_admin(request) else ok({}))
+
+
+@csrf_exempt
+def super_admin_action(request: HttpRequest, section: str, item_id: str, action: str):
+    def run():
+        admin = require_super_admin(request)
+        if request.method != "POST":
+            return fail("Method not allowed.", status=405)
+        return ok(services.super_admin_action(admin, section, item_id, action, parse_json(request)))
+
+    return handle(run)

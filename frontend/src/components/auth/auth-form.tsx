@@ -2,10 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Github, KeyRound, Mail, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/form";
+
+type AuthResponse = {
+  ok: boolean;
+  data?: {
+    role?: "admin" | "host";
+    organizationId?: string | null;
+  };
+  error?: { message: string };
+};
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
@@ -27,10 +37,18 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload)
     });
-    const body = (await response.json()) as { ok: boolean; error?: { message: string } };
+    const body = (await response.json()) as AuthResponse;
     setLoading(false);
     if (!body.ok) {
       setMessage(body.error?.message ?? "Something went wrong.");
+      return;
+    }
+    if (mode === "login" && body.data?.role === "admin" && !body.data.organizationId) {
+      router.push("/super-admin/dashboard");
+      return;
+    }
+    if (mode === "login" && body.data?.role === "admin") {
+      router.push("/admin");
       return;
     }
     router.push("/dashboard");
@@ -67,6 +85,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               <Input name="password" required type="password" minLength={mode === "register" ? 8 : 1} className="pl-10" />
             </div>
           </Field>
+          {mode === "login" ? (
+            <Link href="/forgot-password" className="-mt-2 text-right text-sm font-bold text-brand-600">Forgot password?</Link>
+          ) : (
+            <p className="-mt-2 text-xs font-semibold text-slate-500">Use 8+ characters with at least 3 of uppercase, lowercase, number, and symbol.</p>
+          )}
           {mode === "register" ? (
             <Field label="Confirm password">
               <Input name="confirmPassword" required type="password" minLength={8} />

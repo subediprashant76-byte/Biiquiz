@@ -120,5 +120,19 @@ def require_admin(request) -> User:
     return user
 
 
+def require_organization_admin(request) -> User:
+    user = require_admin(request)
+    if not user.organization_id:
+        raise PermissionError("Organization Admin access required.")
+    return user
+
+
+def require_super_admin(request) -> User:
+    user = require_admin(request)
+    if user.organization_id:
+        raise PermissionError("Super Admin access required.")
+    return user
+
+
 def now_plus_session() -> timezone.datetime:
     return timezone.now() + timedelta(days=settings.SESSION_DAYS)

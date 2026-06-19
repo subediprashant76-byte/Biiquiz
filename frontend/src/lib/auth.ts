@@ -100,6 +100,12 @@ export async function requireAdmin() {
   return user;
 }
 
+export async function requireOrganizationAdmin() {
+  const user = await requireAdmin();
+  if (!user.organizationId) throw new Error("Organization Admin access required.");
+  return user;
+}
+
 export async function setParticipantCookie(roomCode: string, token: string) {
   const jar = await cookies();
   jar.set(`${PARTICIPANT_COOKIE}_${roomCode}`, token, {
@@ -115,4 +121,3 @@ export async function getParticipantToken(roomCode: string) {
   const jar = await cookies();
   return jar.get(`${PARTICIPANT_COOKIE}_${roomCode}`)?.value ?? null;
 }
-

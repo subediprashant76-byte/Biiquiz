@@ -4,6 +4,7 @@
 The project now supports two backend runtimes:
 
 - Python backend: Django API service in `backend/`, enabled from the frontend with `USE_DJANGO_API="true"`.
+- Super Admin business data uses normalized PostgreSQL tables for plans, subscriptions, upgrades, payments, domains, support, platform settings, and AI settings. Prisma owns migrations; Django maps these tables as unmanaged models.
 - Fallback backend: existing Next.js App Router API routes in `frontend/src/app/api`.
 
 Both runtimes use the same PostgreSQL database. Prisma remains the migration and schema authority. The Django models are unmanaged and mapped to Prisma table names, while the Django API includes a Prisma contract guard that reads `prisma/schema.prisma` and verifies required tables/enums. The Next app now lives in `frontend/` and proxies `/api/*` to Django in integrated mode.
@@ -17,7 +18,7 @@ Stack:
 - Zod validation on the Next API side
 - Python validation matching Prisma/Zod constraints on the Django side
 - Optional Redis helper for cache/realtime-style production concerns
-- BYOK Gemini AI where Gemini API keys are entered and used in the frontend, not stored by either backend
+- AI generation where Gemini API keys are entered and used in the frontend, not stored by either backend
 
 ## Setup
 ```bash
@@ -90,11 +91,11 @@ Important Prisma models already present:
 | POST | `/api/rooms/[roomCode]/answer` | Submit participant answer | questionId, selectedOption | score result |
 | GET | `/api/leaderboard/[roomCode]` | Get rankings | none | leaderboard rows |
 | GET | `/api/rooms/[roomCode]/results.csv` | Export results | none | CSV |
-| POST | `/api/ai/generate-questions` | Save frontend-generated Gemini JSON | input, generatedJson | generation |
-| POST | `/api/ai/repair-questions` | Save repaired frontend-generated JSON for validation | generationId, repairedJson | generation, drafts, validationErrors |
-| POST | `/api/ai/publish-questions` | Publish AI drafts | generationId | quiz questions |
-| GET | `/api/ai/generations/[generationId]` | Load AI generation | none | generation and drafts |
-| POST/PATCH/DELETE | `/api/ai/draft-question*` | Manage draft questions | draft fields | draft/ok |
+| POST | `/api/ai/generate-questions` | Legacy saved-draft AI flow, not used by Quick AI Gen | input, generatedJson | generation |
+| POST | `/api/ai/repair-questions` | Legacy saved-draft repair flow, not used by Quick AI Gen | generationId, repairedJson | generation, drafts, validationErrors |
+| POST | `/api/ai/publish-questions` | Legacy saved-draft publish flow | generationId | quiz questions |
+| GET | `/api/ai/generations/[generationId]` | Legacy saved-draft generation detail | none | generation and drafts |
+| POST/PATCH/DELETE | `/api/ai/draft-question*` | Legacy saved-draft question management | draft fields | draft/ok |
 | GET | `/api/admin/overview` | Admin overview data | none | metrics |
 | GET | `/api/admin/users` | User management data | none | users |
 | GET/POST | `/api/admin/host-passes` | Host pass data/create pass | pass data on POST | passes/pass |
@@ -161,15 +162,15 @@ API-connected flows supported by Django:
 Host and organization UI screens now read backend `/api/*` data. `src/lib/ui-data.ts` is limited to public landing/pricing content.
 
 ## BYOK Gemini
-Gemini API keys are entered in the frontend. Multiple keys can be used for fallback. If the user chooses to remember keys, they are stored only in that browser's localStorage. The backend receives generated JSON for validation/storage and never stores Gemini API keys.
+Gemini API keys are entered in the frontend. Multiple keys can be used for fallback. If the user chooses to remember keys, they are stored only in that browser's localStorage. The Quick AI Gen route does not send Gemini keys, raw generated JSON, validation errors, or repair logs to the backend.
 
 Strict flow:
 1. Browser calls Gemini with the selected user key.
-2. Browser sends generated JSON to `/api/ai/generate-questions`.
-3. Backend stores `raw_json`, validates it, stores `fixed_json` and draft rows only when valid.
-4. If invalid, frontend repairs with Gemini using the user's key and posts to `/api/ai/repair-questions`.
-5. Backend stores repaired JSON, validation errors, and increments `attempt_count`.
-6. Publish is blocked unless status is `ready_for_preview` or `repaired` and valid draft rows exist.
+2. Browser validates generated JSON against the supported single-correct MCQ schema.
+3. If invalid, browser repairs with Gemini using the user's key and validates again.
+4. Browser repeats repair until errors are zero or the repair limit is reached.
+5. Browser maps valid questions to the existing manual question payload.
+6. Backend receives only final accepted payloads through `/api/quizzes/[quizId]/questions` and performs final validation/RBAC before saving.
 
 ## Pending Backend Work
 - Add richer host pass actions and user status update endpoints.

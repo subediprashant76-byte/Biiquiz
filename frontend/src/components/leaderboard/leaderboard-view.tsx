@@ -1,34 +1,46 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Download, Share2, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 
 type Row = {
   rank: number;
+  participantId: string;
+  name?: string;
   displayName: string;
   score: number;
+  correct?: number;
   correctCount: number;
   wrongCount: number;
+  attempted?: number;
   attemptedCount: number;
+  totalQuestions?: number;
+  timeTakenSeconds?: number;
+  isCurrentUser?: boolean;
   accuracyPercent: number;
+};
+
+type LeaderboardPayload = {
+  quizStatus: string;
+  leaderboard: Row[];
 };
 
 export function LeaderboardView({ roomCode }: { roomCode: string }) {
   const [rows, setRows] = useState<Row[]>([]);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const response = await fetch(`/api/leaderboard/${roomCode}`);
-    const body = (await response.json()) as { ok: boolean; data?: Row[] };
-    if (body.ok && body.data) setRows(body.data);
-  }
+    const body = (await response.json()) as { ok: boolean; data?: LeaderboardPayload | Row[] };
+    if (body.ok && body.data) setRows(Array.isArray(body.data) ? body.data : body.data.leaderboard);
+  }, [roomCode]);
 
   useEffect(() => {
     void refresh();
     const id = window.setInterval(refresh, 3000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [refresh]);
 
   return (
     <Card className="shadow-lifted">
@@ -47,21 +59,23 @@ export function LeaderboardView({ roomCode }: { roomCode: string }) {
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {rows.slice(0, 3).map((row, index) => (
-            <div key={row.rank} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+            <div key={row.participantId ?? row.rank} className={row.isCurrentUser ? "rounded-xl border border-brand-300 bg-brand-50 p-4 text-center" : "rounded-xl border border-slate-200 bg-slate-50 p-4 text-center"}>
               <Trophy className={index === 0 ? "mx-auto text-warning-500" : "mx-auto text-slate-400"} />
               <p className="mt-2 text-sm font-black text-slate-500">#{row.rank}</p>
-              <p className="mt-1 font-black text-ink">{row.displayName}</p>
+              <p className="mt-1 font-black text-ink">{row.displayName}{row.isCurrentUser ? " (You)" : ""}</p>
               <p className="text-sm font-bold text-brand-600">{row.score} pts</p>
             </div>
           ))}
         </div>
         <div className="mt-6 grid gap-2">
           {rows.map((row) => (
-            <div key={row.rank} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+            <div key={row.participantId ?? row.rank} className={row.isCurrentUser ? "grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl border border-brand-300 bg-brand-50 p-3" : "grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"}>
               <span className="grid size-10 place-items-center rounded-xl bg-brand-50 text-sm font-black text-brand-700">#{row.rank}</span>
               <div>
-                <p className="font-black text-ink">{row.displayName}</p>
-                <p className="text-xs font-semibold text-slate-500">{row.correctCount} correct · {row.accuracyPercent}% accuracy</p>
+                <p className="font-black text-ink">{row.displayName}{row.isCurrentUser ? " (You)" : ""}</p>
+                <p className="text-xs font-semibold text-slate-500">
+                  {row.correct ?? row.correctCount} correct · {row.attempted ?? row.attemptedCount}/{row.totalQuestions ?? row.attemptedCount} attempted · {row.accuracyPercent}% accuracy
+                </p>
               </div>
               <p className="text-lg font-black text-ink">{row.score}</p>
             </div>

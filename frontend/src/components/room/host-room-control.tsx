@@ -1,31 +1,60 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Copy, Download, Pause, Play, Settings, SkipForward, Square, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ProgressBars, Tabs } from "@/components/ui/product";
+import { Tabs } from "@/components/ui/product";
 
 type RoomState = {
   roomCode: string;
   roomName: string;
   status: string;
   currentQuestion?: { questionText: string; orderNumber: number } | null;
+  participants?: Array<{ id: string; displayName: string; score: number; attemptedCount: number; joinedAt: string }>;
   _count: { participants: number };
+};
+
+type LeaderboardRow = {
+  rank: number;
+  participantId: string;
+  name: string;
+  displayName: string;
+  score: number;
+  correct: number;
+  correctCount: number;
+  attempted: number;
+  attemptedCount: number;
+  totalQuestions: number;
+  timeTakenSeconds: number;
+  accuracyPercent: number;
+};
+
+type LeaderboardPayload = {
+  roomId: string;
+  quizId: string;
+  quizStatus: string;
+  leaderboard: LeaderboardRow[];
 };
 
 export function HostRoomControl({ roomCode }: { roomCode: string }) {
   const [room, setRoom] = useState<RoomState | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [message, setMessage] = useState("");
   const joinLink = typeof window === "undefined" ? "" : `${window.location.origin}/join?room=${roomCode}`;
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const response = await fetch(`/api/rooms/${roomCode}`);
     const body = (await response.json()) as { ok: boolean; data?: RoomState; error?: { message: string } };
     if (body.ok && body.data) setRoom(body.data);
     else setMessage(body.error?.message ?? "Could not load room.");
-  }
+    const leaderboardResponse = await fetch(`/api/leaderboard/${roomCode}`, { cache: "no-store" });
+    const leaderboardBody = (await leaderboardResponse.json()) as { ok: boolean; data?: LeaderboardPayload | LeaderboardRow[] };
+    if (leaderboardBody.ok && leaderboardBody.data) {
+      setLeaderboard(Array.isArray(leaderboardBody.data) ? leaderboardBody.data : leaderboardBody.data.leaderboard);
+    }
+  }, [roomCode]);
 
   async function action(name: "start" | "pause" | "next-question" | "end") {
     setMessage("");
@@ -39,7 +68,7 @@ export function HostRoomControl({ roomCode }: { roomCode: string }) {
     void refresh();
     const id = window.setInterval(refresh, 5000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [refresh]);
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
@@ -54,15 +83,10 @@ export function HostRoomControl({ roomCode }: { roomCode: string }) {
           </div>
           <div className="mt-6 rounded-2xl bg-slate-50 p-5">
             <p className="text-sm font-black uppercase tracking-wide text-slate-500">Active question</p>
-            <h2 className="mt-2 text-2xl font-black text-ink">{room?.currentQuestion?.questionText ?? "Waiting for current question."}</h2>
-            <div className="mt-5">
-              <ProgressBars values={[
-                { label: "Option A", value: 42 },
-                { label: "Option B", value: 18 },
-                { label: "Option C", value: 31, tone: "bg-success-500" },
-                { label: "Option D", value: 9 }
-              ]} />
-            </div>
+            <h2 className="mt-2 text-xl font-black leading-snug text-ink">{room?.currentQuestion?.questionText ?? "Waiting for current question."}</h2>
+            <p className="mt-3 text-sm font-semibold text-slate-500">
+              Responses update after participants submit answers.
+            </p>
           </div>
           <div className="mt-6 hidden gap-3 sm:grid-cols-2 lg:grid lg:grid-cols-4">
             <Button onClick={() => action("start")}><Play size={16} />Start</Button>
@@ -93,18 +117,41 @@ export function HostRoomControl({ roomCode }: { roomCode: string }) {
               CSV
             </a>
           </div>
+          <div className="mt-5 grid gap-2">
+            {(room?.participants ?? []).map((participant) => (
+              <div key={participant.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm">
+                <span className="font-bold text-slate-700">{participant.displayName}</span>
+                <span className="font-black text-ink">{participant.score} pts</span>
+              </div>
+            ))}
+            {(room?.participants ?? []).length === 0 ? (
+              <p className="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm font-semibold text-slate-500">No participants have joined yet.</p>
+            ) : null}
+          </div>
         </CardBody>
       </Card>
       <Card>
         <CardBody>
-          <h3 className="font-black text-ink">Top 5 leaderboard</h3>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-black text-ink">{room?.status === "ended" ? "Final locked leaderboard" : "Live leaderboard"}</h3>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black uppercase text-slate-500">
+              {leaderboard.reduce((total, row) => total + row.attemptedCount, 0)} submitted
+            </span>
+          </div>
           <div className="mt-4 grid gap-2 text-sm">
-            {["Riya", "Kiran", "Maya", "Pratik", "Asha"].map((name, index) => (
-              <div key={name} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
-                <span className="font-bold text-slate-700">#{index + 1} {name}</span>
-                <span className="font-black text-ink">{980 - index * 80}</span>
+            {leaderboard.map((row) => (
+              <div key={row.participantId} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                <span className="grid size-8 place-items-center rounded-lg bg-white font-black text-brand-700">#{row.rank}</span>
+                <div>
+                  <p className="font-bold text-slate-700">{row.displayName}</p>
+                  <p className="text-xs font-semibold text-slate-500">
+                    {row.correctCount} correct · {row.attemptedCount}/{row.totalQuestions} attempted · {row.timeTakenSeconds}s
+                  </p>
+                </div>
+                <span className="font-black text-ink">{row.score}</span>
               </div>
             ))}
+            {leaderboard.length === 0 ? <p className="rounded-xl bg-slate-50 px-3 py-4 text-center font-semibold text-slate-500">No scores yet.</p> : null}
           </div>
         </CardBody>
       </Card>

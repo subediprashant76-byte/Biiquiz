@@ -78,6 +78,68 @@ enum UsageStatus {
   failed
 }
 
+enum OrganizationStatus {
+  active
+  pending
+  suspended
+}
+
+enum SubscriptionStatus {
+  active
+  pending
+  expired
+  cancelled
+}
+
+enum UpgradeRequestStatus {
+  pending
+  approved
+  rejected
+  contacted
+  cancelled
+}
+
+enum ManualPaymentStatus {
+  pending
+  verified
+  rejected
+  more_info_required
+}
+
+enum DomainVerificationStatus {
+  pending
+  verified
+  failed
+}
+
+enum WebsiteStatus {
+  active
+  disabled
+  provisioning
+  failed
+}
+
+enum SupportTicketStatus {
+  open
+  in_progress
+  waiting_customer
+  resolved
+  closed
+}
+
+enum SupportTicketPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum AiAccessMode {
+  disabled
+  byok
+  managed
+}
+
 model Organization {
   id            String       @id @default(uuid()) @db.Uuid
   name          String
@@ -85,6 +147,12 @@ model Organization {
   plan          OrganizationPlan @default(free)
   brandingJson  Json?        @map("branding_json")
   settingsJson  Json?        @map("settings_json")
+  status        OrganizationStatus @default(active)
+  isSample      Boolean      @default(false) @map("is_sample")
+  suspensionReason String?   @map("suspension_reason")
+  suspendedAt   DateTime?    @map("suspended_at") @db.Timestamptz
+  primaryContactName String? @map("primary_contact_name")
+  primaryContactEmail String? @map("primary_contact_email")
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
   users         User[]
@@ -95,9 +163,183 @@ model Organization {
   invites       OrganizationInvite[]
   auditLogs     AuditLog[]
   dailyStats    OrganizationDailyStat[]
+  subscription  OrganizationSubscription?
+  upgradeRequests UpgradeRequest[]
+  manualPayments ManualPayment[]
+  domains       TenantDomain[]
+  supportTickets SupportTicket[]
 
   @@index([plan])
+  @@index([status, isSample])
   @@map("organizations")
+}
+
+model Plan {
+  id                     String       @id @default(uuid()) @db.Uuid
+  code                   String       @unique
+  name                   String
+  description            String?
+  priceCents             Int          @default(0) @map("price_cents")
+  currency               String       @default("USD")
+  isActive               Boolean      @default(true) @map("is_active")
+  hostLimit              Int          @map("host_limit")
+  studentLimit           Int          @map("student_limit")
+  quizLimit              Int          @map("quiz_limit")
+  roomLimit              Int          @map("room_limit")
+  storageLimitMb         Int          @default(1024) @map("storage_limit_mb")
+  aiAccessMode           AiAccessMode @default(byok) @map("ai_access_mode")
+  aiMonthlyQuestionLimit Int          @default(0) @map("ai_monthly_question_limit")
+  featuresJson           Json?        @map("features_json")
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  subscriptions          OrganizationSubscription[]
+  upgradeRequests        UpgradeRequest[]
+
+  @@index([isActive])
+  @@map("plans")
+}
+
+model OrganizationSubscription {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @unique @map("organization_id") @db.Uuid
+  planId         String             @map("plan_id") @db.Uuid
+  status         SubscriptionStatus @default(active)
+  startsAt       DateTime           @default(now()) @map("starts_at") @db.Timestamptz
+  endsAt         DateTime?          @map("ends_at") @db.Timestamptz
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan           Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([planId, status])
+  @@map("organization_subscriptions")
+}
+
+model UpgradeRequest {
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  requestedPlanId String              @map("requested_plan_id") @db.Uuid
+  requestedByUserId String?           @map("requested_by_user_id") @db.Uuid
+  status         UpgradeRequestStatus @default(pending)
+  requestNote    String?              @map("request_note")
+  adminNote      String?              @map("admin_note")
+  reviewedByUserId String?            @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt     DateTime?            @map("reviewed_at") @db.Timestamptz
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestedPlan  Plan                 @relation(fields: [requestedPlanId], references: [id], onDelete: Restrict)
+  requestedBy    User?                @relation("UpgradeRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  reviewedBy     User?                @relation("UpgradeReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  payments       ManualPayment[]
+
+  @@index([organizationId, status, createdAt])
+  @@map("upgrade_requests")
+}
+
+model ManualPayment {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  upgradeRequestId String?           @map("upgrade_request_id") @db.Uuid
+  payerName      String              @map("payer_name")
+  transactionId  String              @unique @map("transaction_id")
+  amountCents    Int                 @map("amount_cents")
+  currency       String              @default("USD")
+  note           String?
+  proofImagePath String?             @map("proof_image_path")
+  status         ManualPaymentStatus @default(pending)
+  adminNote      String?             @map("admin_note")
+  reviewedByUserId String?           @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt     DateTime?           @map("reviewed_at") @db.Timestamptz
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  upgradeRequest UpgradeRequest?     @relation(fields: [upgradeRequestId], references: [id], onDelete: SetNull)
+  reviewedBy     User?               @relation("PaymentReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, createdAt])
+  @@map("manual_payments")
+}
+
+model TenantDomain {
+  id             String                   @id @default(uuid()) @db.Uuid
+  organizationId String                   @map("organization_id") @db.Uuid
+  domain         String                   @unique
+  isPrimary      Boolean                  @default(false) @map("is_primary")
+  isSystemDomain Boolean                  @default(false) @map("is_system_domain")
+  dnsStatus      DomainVerificationStatus @default(pending) @map("dns_status")
+  sslStatus      DomainVerificationStatus @default(pending) @map("ssl_status")
+  websiteStatus  WebsiteStatus            @default(provisioning) @map("website_status")
+  lastCheckedAt  DateTime?                 @map("last_checked_at") @db.Timestamptz
+  createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isPrimary])
+  @@index([dnsStatus, sslStatus])
+  @@map("tenant_domains")
+}
+
+model SupportTicket {
+  id             String                @id @default(uuid()) @db.Uuid
+  organizationId String?               @map("organization_id") @db.Uuid
+  openedByUserId String?               @map("opened_by_user_id") @db.Uuid
+  assignedToUserId String?             @map("assigned_to_user_id") @db.Uuid
+  ticketNumber   String                @unique @map("ticket_number")
+  subject        String
+  description    String
+  priority       SupportTicketPriority @default(medium)
+  status         SupportTicketStatus   @default(open)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+  resolvedAt     DateTime?             @map("resolved_at") @db.Timestamptz
+  organization   Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  openedBy       User?                 @relation("TicketOpenedBy", fields: [openedByUserId], references: [id], onDelete: SetNull)
+  assignedTo     User?                 @relation("TicketAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  messages       SupportTicketMessage[]
+
+  @@index([organizationId, status, priority])
+  @@index([status, updatedAt])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id           String        @id @default(uuid()) @db.Uuid
+  ticketId     String        @map("ticket_id") @db.Uuid
+  authorUserId String?       @map("author_user_id") @db.Uuid
+  message      String
+  isInternal   Boolean       @default(false) @map("is_internal")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author       User?         @relation("TicketMessageAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@map("support_ticket_messages")
+}
+
+model PlatformSetting {
+  id                  String   @id @default("global")
+  branding            String   @default("biiQuiz")
+  defaultPlanCode     String   @default("free") @map("default_plan_code")
+  defaultParticipantLimit Int  @default(50) @map("default_participant_limit")
+  paymentQrImagePath  String   @default("/payment.png") @map("payment_qr_image_path")
+  maintenanceMode     Boolean  @default(false) @map("maintenance_mode")
+  registrationEnabled Boolean  @default(true) @map("registration_enabled")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("platform_settings")
+}
+
+model AiPlatformSetting {
+  id            String   @id @default("global")
+  primaryModel  String   @default("gemini-2.5-flash") @map("primary_model")
+  fallbackModel String   @default("gemini-2.0-flash") @map("fallback_model")
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("ai_platform_settings")
 }
 
 model User {
@@ -114,17 +356,38 @@ model User {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   quizzes        Quiz[]
   rooms          Room[]
+  passwordResetOtps PasswordResetOtp[]
   assignedPasses HostPass[]    @relation("AssignedHostPass")
   createdPasses  HostPass[]    @relation("CreatedHostPass")
   aiGenerations  AiGeneration[]
   aiUsageLogs    AiUsageLog[]
   invitesSent    OrganizationInvite[]
   auditLogs      AuditLog[]
+  upgradeRequestsCreated UpgradeRequest[] @relation("UpgradeRequestedBy")
+  upgradeRequestsReviewed UpgradeRequest[] @relation("UpgradeReviewedBy")
+  paymentsReviewed ManualPayment[] @relation("PaymentReviewedBy")
+  supportTicketsOpened SupportTicket[] @relation("TicketOpenedBy")
+  supportTicketsAssigned SupportTicket[] @relation("TicketAssignedTo")
+  supportMessages SupportTicketMessage[] @relation("TicketMessageAuthor")
 
   @@index([role])
   @@index([organizationId])
   @@index([organizationId, role])
   @@map("users")
+}
+
+model PasswordResetOtp {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([codeHash])
+  @@map("password_reset_otps")
 }
 
 model Quiz {

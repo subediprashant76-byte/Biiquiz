@@ -15,12 +15,18 @@ from api.models import (
     Answer,
     AuditLog,
     HostPass,
+    ManualPayment,
     Organization,
     OrganizationDailyStat,
+    OrganizationSubscription,
     Participant,
+    Plan,
     Question,
     Quiz,
     Room,
+    SupportTicket,
+    TenantDomain,
+    UpgradeRequest,
     User,
 )
 
@@ -63,14 +69,18 @@ class Command(BaseCommand):
                     "plan": plan,
                     "branding_json": {"primaryColor": "#1d4ed8"},
                     "settings_json": {"sso": False, "seatLimit": 50},
+                    "status": "active",
+                    "is_sample": True,
                     "created_at": now,
                     "updated_at": now,
                 },
             )
             org.name = name
             org.plan = plan
+            org.status = "active"
+            org.is_sample = True
             org.updated_at = now
-            org.save(update_fields=["name", "plan", "updated_at"])
+            org.save(update_fields=["name", "plan", "status", "is_sample", "updated_at"])
             organizations[slug] = org
 
         users = {}
@@ -251,6 +261,60 @@ class Command(BaseCommand):
 
         for slug, org in organizations.items():
             admin = User.objects.filter(organization=org, role="admin").first()
+            plan = Plan.objects.get(code=org.plan)
+            subscription = OrganizationSubscription.objects.filter(organization_id=org.id).first()
+            if subscription is None:
+                subscription = OrganizationSubscription(id=uuid.uuid4(), organization=org, created_at=now)
+            subscription.plan = plan
+            subscription.status = "active"
+            subscription.starts_at = now - timedelta(days=30)
+            subscription.ends_at = None
+            subscription.updated_at = now
+            subscription.save()
+            domain_value = f"{slug}.biiquiz.com"
+            domain = TenantDomain.objects.filter(domain=domain_value).first() or TenantDomain(id=uuid.uuid4(), domain=domain_value, created_at=now)
+            domain.organization = org
+            domain.is_primary = True
+            domain.is_system_domain = True
+            domain.dns_status = "verified"
+            domain.ssl_status = "verified"
+            domain.website_status = "active"
+            domain.last_checked_at = now
+            domain.updated_at = now
+            domain.save()
+
+            upgrade = UpgradeRequest.objects.filter(organization_id=org.id, request_note="Sample plan upgrade request").first() or UpgradeRequest(id=uuid.uuid4(), organization=org, request_note="Sample plan upgrade request", created_at=now)
+            upgrade.requested_plan = Plan.objects.get(code="enterprise")
+            upgrade.requested_by = admin
+            upgrade.status = "pending"
+            upgrade.admin_note = None
+            upgrade.reviewed_by = None
+            upgrade.reviewed_at = None
+            upgrade.updated_at = now
+            upgrade.save()
+
+            transaction_id = f"SAMPLE-{slug.upper()}"
+            payment = ManualPayment.objects.filter(transaction_id=transaction_id).first() or ManualPayment(id=uuid.uuid4(), transaction_id=transaction_id, created_at=now)
+            payment.organization = org
+            payment.upgrade_request = upgrade
+            payment.payer_name = org.name
+            payment.amount_cents = plan.price_cents
+            payment.currency = plan.currency
+            payment.note = "Sample payment for development testing."
+            payment.status = "pending"
+            payment.updated_at = now
+            payment.save()
+
+            ticket_number = f"SAMPLE-{slug.upper()}"
+            ticket = SupportTicket.objects.filter(ticket_number=ticket_number).first() or SupportTicket(id=uuid.uuid4(), ticket_number=ticket_number, created_at=now)
+            ticket.organization = org
+            ticket.opened_by = admin
+            ticket.subject = "Sample organization support request"
+            ticket.description = "Development-only ticket for validating the Super Admin support workflow."
+            ticket.priority = "medium"
+            ticket.status = "open"
+            ticket.updated_at = now
+            ticket.save()
             HostPass.objects.update_or_create(
                 pass_code_hash=hash_token(f"{slug}-PASS-2026"),
                 defaults={

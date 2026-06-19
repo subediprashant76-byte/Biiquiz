@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>biiQuiz Super Admin | Live Rooms</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;family=Courier+Prime&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-tint": "#4d44e3",
+                    "secondary-fixed": "#e3dfff",
+                    "on-surface-variant": "#464555",
+                    "on-secondary-fixed-variant": "#444173",
+                    "surface-container": "#f0ecf9",
+                    "surface-bright": "#fcf8ff",
+                    "on-tertiary": "#ffffff",
+                    "inverse-primary": "#c3c0ff",
+                    "primary-fixed-dim": "#c3c0ff",
+                    "surface-container-low": "#f5f2ff",
+                    "error-container": "#ffdad6",
+                    "tertiary-fixed-dim": "#ffb695",
+                    "surface-variant": "#e4e1ee",
+                    "primary-container": "#4f46e5",
+                    "on-tertiary-container": "#ffd2be",
+                    "outline-variant": "#c7c4d8",
+                    "on-secondary-fixed": "#181445",
+                    "tertiary-fixed": "#ffdbcc",
+                    "on-surface": "#1b1b24",
+                    "on-secondary": "#ffffff",
+                    "secondary": "#5b598c",
+                    "background": "#fcf8ff",
+                    "on-secondary-container": "#514f81",
+                    "surface-dim": "#dcd8e5",
+                    "tertiary": "#7e3000",
+                    "error": "#ba1a1a",
+                    "on-error": "#ffffff",
+                    "on-tertiary-fixed": "#351000",
+                    "outline": "#777587",
+                    "surface-container-highest": "#e4e1ee",
+                    "secondary-container": "#c7c3fe",
+                    "on-primary-container": "#dad7ff",
+                    "primary-fixed": "#e2dfff",
+                    "inverse-surface": "#302f39",
+                    "on-primary": "#ffffff",
+                    "inverse-on-surface": "#f3effc",
+                    "secondary-fixed-dim": "#c4c1fb",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed-variant": "#3323cc",
+                    "surface": "#fcf8ff",
+                    "primary": "#3525cd",
+                    "tertiary-container": "#a44100",
+                    "on-error-container": "#93000a",
+                    "on-background": "#1b1b24",
+                    "on-primary-fixed": "#0f0069",
+                    "on-tertiary-fixed-variant": "#7b2f00",
+                    "surface-container-high": "#eae6f4"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "unit": "4px",
+                    "stack-sm": "8px",
+                    "stack-md": "16px",
+                    "container-padding-desktop": "32px",
+                    "container-padding-mobile": "16px",
+                    "gutter": "16px",
+                    "stack-lg": "24px"
+            },
+            "fontFamily": {
+                    "body-md": ["Inter"],
+                    "label-md": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "mono-label": ["Courier Prime"]
+            },
+            "fontSize": {
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                    "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "mono-label": ["12px", {"lineHeight": "16px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #F9FAFB;
+            color: #1b1b24;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        /* Custom Table Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #F1F1F1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #D1D5DB;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #9CA3AF;
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md">
+<!-- Side Navigation Shell -->
+<aside class="fixed left-0 top-0 h-full w-[240px] hidden md:flex flex-col border-r border-outline-variant bg-white dark:bg-surface-container z-50">
+<div class="px-stack-lg py-stack-lg flex flex-col gap-unit">
+<h1 class="text-headline-md font-headline-md font-bold text-primary dark:text-on-primary-fixed-variant">biiQuiz</h1>
+<p class="text-label-sm text-outline">Super Admin Console</p>
+</div>
+<nav class="flex-1 px-stack-sm overflow-y-auto space-y-1 mt-stack-md">
+<!-- Dashboard -->
+<a class="flex items-center px-stack-md py-stack-sm rounded-lg transition-colors text-on-surface-variant hover:bg-surface-container-low" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<!-- Enterprises -->
+<a class="flex items-center px-stack-md py-stack-sm rounded-lg transition-colors text-on-surface-variant hover:bg-surface-container-low" href="#">
+<span class="material-symbols-outlined mr-3">business</span>
+<span class="font-label-md text-label-md">Enterprises</span>
+</a>
+<!-- Hosts -->
+<a class="flex items-center px-stack-md py-stack-sm rounded-lg transition-colors text-on-surface-variant hover:bg-surface-container-low" href="#">
+<span class="material-symbols-outlined mr-3">supervisor_account</span>
+<span class="font-label-md text-label-md">Hosts</span>
+</a>
+<!-- Students -->
+<a class="flex items-center px-stack-md py-stack-sm rounded-lg transition-colors text-on-surface-variant hover:bg-surface-container-low" href="#">
+<span class="material-symbols-outlined mr-3">school</span>
+<span class="font-label-md text-label-md">Students</span>
+</a>
+<!-- Live Rooms (ACTIVE) -->
+<a class="flex items-center px-stack-md py-stack-sm rounded-lg transition-colors text-primary dark:text-on-primary-fixed-variant bg-primary-container/10 dark:bg-primary-container/20 border-r-4 border-primary" href="#">
+<span class="material-symbols-outlined mr-3" style="font-variation-settings: 'FILL' 1;">live_tv</span>
+<span class="font-label-md text-label-md">Live Rooms</span>
+</a>
+<!-- Quizzes -->
+<a class="flex items-center px-stack-md py-stack-sm rounded-lg transition-colors text-on-surface-variant hover:bg-surface-container-low" href="#">
+<span class="material-symbols-outlined mr-3">quiz</span>
+<span class="font-label-md text-label-md">Quizzes</span>
+</a>
+<!-- Analytics -->
+<a class="flex items-center px-stack-md py-stack-sm rounded-lg transition-colors text-on-surface-variant hover:bg-surface-container-low" href="#">
+<span class="material-symbols-outlined mr-3">analytics</span>
+<span class="font-label-md text-label-md">Analytics</span>
+</a>
+<!-- Payments -->
+<a class="flex items-center px-stack-md py-stack-sm rounded-lg transition-colors text-on-surface-variant hover:bg-surface-container-low" href="#">
+<span class="material-symbols-outlined mr-3">payments</span>
+<span class="font-label-md text-label-md">Payments</span>
+</a>
+<!-- Platform Settings -->
+<a class="flex items-center px-stack-md py-stack-sm rounded-lg transition-colors text-on-surface-variant hover:bg-surface-container-low" href="#">
+<span class="material-symbols-outlined mr-3">settings</span>
+<span class="font-label-md text-label-md">Platform Settings</span>
+</a>
+</nav>
+<div class="p-stack-md border-t border-outline-variant">
+<button class="flex items-center w-full px-stack-md py-stack-sm rounded-lg transition-colors text-error hover:bg-error-container/20">
+<span class="material-symbols-outlined mr-3">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</button>
+</div>
+</aside>
+<!-- Top Navigation Shell -->
+<header class="fixed top-0 right-0 left-0 md:left-[240px] h-16 bg-surface-container-lowest border-b border-outline-variant z-40 flex justify-between items-center px-container-padding-desktop">
+<div class="flex items-center gap-stack-md flex-1">
+<div class="relative w-full max-w-md hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 ring-primary/20 focus:border-primary transition-all text-body-sm outline-none" placeholder="Search rooms, quizzes, or hosts..." type="text"/>
+</div>
+<h2 class="md:hidden font-headline-sm text-headline-sm font-black text-primary">biiQuiz Admin</h2>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="hidden sm:flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                Create New
+            </button>
+<div class="h-6 w-[1px] bg-outline-variant mx-2"></div>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="ml-2 flex items-center gap-3 cursor-pointer group">
+<img class="w-8 h-8 rounded-full border border-outline-variant object-cover" data-alt="A professional headshot of a senior executive admin in a clean, modern corporate setting, soft studio lighting, high-end business photography style, blue and neutral tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiqEAJor9ji7qFyVQDss4mLW6YZ5jBpJ2pw0kACCzjqESKxdEbW6FUY3Rp7318ERbM7aiZH57zGcXjeIxpxHYgIhnb56gY6IChMFwCkP9KIMSo6z0jfRN7I1U5DNWeS1em17EuNiHvfNtz6qd44o5vQj_2cBRF2lCU4JLBKC9Hp3izSY-AufejPOXNtviwwtl0H5G-UVqpYDLQdpg4cb8yYLBcYBLAoHSGI02nCUg3znAVbVnqdmiHwppkCGnGX_G0Nafjx3P-xac"/>
+<div class="hidden xl:block">
+<p class="text-label-md font-bold text-on-surface leading-none">Super Admin</p>
+<p class="text-[10px] text-outline">System Overlord</p>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-16 md:ml-[240px] min-h-screen">
+<div class="p-container-padding-desktop max-w-[1600px] mx-auto space-y-stack-lg">
+<!-- Page Header & Stats Summary (Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter">
+<div class="md:col-span-2 flex flex-col justify-center p-stack-lg bg-white border border-outline-variant rounded-xl">
+<h3 class="text-headline-lg font-headline-lg text-primary mb-1">Room Oversight</h3>
+<p class="text-on-surface-variant">Real-time management and historical audit of all active quiz sessions across the platform.</p>
+</div>
+<div class="p-stack-lg bg-white border border-outline-variant rounded-xl flex items-center gap-stack-md">
+<div class="w-12 h-12 rounded-full bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">sensors</span>
+</div>
+<div>
+<p class="text-label-sm text-outline uppercase tracking-wider">Live Now</p>
+<p class="text-headline-md font-bold">128 Rooms</p>
+</div>
+</div>
+<div class="p-stack-lg bg-white border border-outline-variant rounded-xl flex items-center gap-stack-md">
+<div class="w-12 h-12 rounded-full bg-secondary-container/20 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[28px]">group</span>
+</div>
+<div>
+<p class="text-label-sm text-outline uppercase tracking-wider">Active Users</p>
+<p class="text-headline-md font-bold">4,821</p>
+</div>
+</div>
+</div>
+<!-- Table Filters and Search -->
+<div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+<div class="p-stack-md border-b border-outline-variant flex flex-wrap items-center justify-between gap-stack-md bg-surface-container-lowest">
+<div class="flex items-center gap-stack-md">
+<div class="flex border border-outline-variant rounded-lg overflow-hidden font-label-md">
+<button class="px-4 py-2 bg-primary text-on-primary">All Sessions</button>
+<button class="px-4 py-2 hover:bg-surface-container-low transition-colors border-l border-outline-variant">Live Only</button>
+<button class="px-4 py-2 hover:bg-surface-container-low transition-colors border-l border-outline-variant">Completed</button>
+</div>
+<button class="flex items-center gap-2 px-3 py-2 border border-outline-variant rounded-lg hover:bg-surface-container-low transition-colors text-body-sm">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                            Advanced Filters
+                        </button>
+</div>
+<div class="flex items-center gap-stack-sm">
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface-container-low">
+<span class="material-symbols-outlined">download</span>
+</button>
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface-container-low">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+</div>
+</div>
+<!-- Data Table -->
+<div class="overflow-x-auto custom-scrollbar">
+<table class="w-full text-left border-collapse min-w-[1200px]">
+<thead>
+<tr class="bg-surface-container-lowest border-b border-outline-variant">
+<th class="p-stack-md w-12"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></th>
+<th class="p-stack-md font-label-md text-label-md text-outline uppercase tracking-wider">Room name</th>
+<th class="p-stack-md font-label-md text-label-md text-outline uppercase tracking-wider">Quiz title</th>
+<th class="p-stack-md font-label-md text-label-md text-outline uppercase tracking-wider">Enterprise</th>
+<th class="p-stack-md font-label-md text-label-md text-outline uppercase tracking-wider">Host</th>
+<th class="p-stack-md font-label-md text-label-md text-outline uppercase tracking-wider">Status</th>
+<th class="p-stack-md font-label-md text-label-md text-outline uppercase tracking-wider text-center">Participants</th>
+<th class="p-stack-md font-label-md text-label-md text-outline uppercase tracking-wider">Winner</th>
+<th class="p-stack-md font-label-md text-label-md text-outline uppercase tracking-wider text-center">Avg Score</th>
+<th class="p-stack-md font-label-md text-label-md text-outline uppercase tracking-wider">Started</th>
+<th class="p-stack-md font-label-md text-label-md text-outline uppercase tracking-wider">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/30">
+<!-- Live Room -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="p-stack-md"><input class="rounded border-outline-variant text-primary" type="checkbox"/></td>
+<td class="p-stack-md font-semibold text-on-surface">ROOM-204-ALPHA</td>
+<td class="p-stack-md text-on-surface-variant">Q3 Fin-Compliance 2024</td>
+<td class="p-stack-md">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">GN</div>
+<span>GlobalNet Inc.</span>
+</div>
+</td>
+<td class="p-stack-md text-body-sm">Sarah Jenkins</td>
+<td class="p-stack-md">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold uppercase">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                                        Live
+                                    </span>
+</td>
+<td class="p-stack-md text-center font-mono-label">84 / 100</td>
+<td class="p-stack-md italic text-outline">—</td>
+<td class="p-stack-md text-center text-outline">—</td>
+<td class="p-stack-md text-body-sm whitespace-nowrap">Oct 24, 10:30 AM</td>
+<td class="p-stack-md">
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-primary/10 text-primary rounded-lg transition-colors" title="View Room Events">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-1.5 hover:bg-secondary/10 text-secondary rounded-lg transition-colors" title="Monitor Live">
+<span class="material-symbols-outlined text-[20px]">monitor_heart</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Ended Room -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="p-stack-md"><input class="rounded border-outline-variant text-primary" type="checkbox"/></td>
+<td class="p-stack-md font-semibold text-on-surface">ROOM-992-BETA</td>
+<td class="p-stack-md text-on-surface-variant">Logic &amp; Aptitude Grade 12</td>
+<td class="p-stack-md">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded bg-secondary/10 flex items-center justify-center text-[10px] font-bold text-secondary">HS</div>
+<span>Hillside Academy</span>
+</div>
+</td>
+<td class="p-stack-md text-body-sm">Dr. Marcus Vane</td>
+<td class="p-stack-md">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-surface-variant text-outline text-[11px] font-bold uppercase">
+                                        Ended
+                                    </span>
+</td>
+<td class="p-stack-md text-center font-mono-label">152 / 160</td>
+<td class="p-stack-md">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-amber-500 text-[16px]" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+<span class="text-body-sm">Leo Sterling</span>
+</div>
+</td>
+<td class="p-stack-md text-center text-on-surface font-semibold">88.4%</td>
+<td class="p-stack-md text-body-sm whitespace-nowrap">Oct 23, 02:15 PM</td>
+<td class="p-stack-md">
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-primary/10 text-primary rounded-lg transition-colors" title="View Submitted Answers">
+<span class="material-symbols-outlined text-[20px]">description</span>
+</button>
+<button class="p-1.5 hover:bg-secondary/10 text-secondary rounded-lg transition-colors" title="Download Report">
+<span class="material-symbols-outlined text-[20px]">file_download</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Repeated Data for High Density -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="p-stack-md"><input class="rounded border-outline-variant text-primary" type="checkbox"/></td>
+<td class="p-stack-md font-semibold text-on-surface">UX-CHALLENGE-01</td>
+<td class="p-stack-md text-on-surface-variant">UI/UX Designer Certification</td>
+<td class="p-stack-md">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded bg-tertiary/10 flex items-center justify-center text-[10px] font-bold text-tertiary">ST</div>
+<span>SkillTrack Pro</span>
+</div>
+</td>
+<td class="p-stack-md text-body-sm">Elena Rodriguez</td>
+<td class="p-stack-md">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-surface-variant text-outline text-[11px] font-bold uppercase">
+                                        Ended
+                                    </span>
+</td>
+<td class="p-stack-md text-center font-mono-label">42 / 50</td>
+<td class="p-stack-md">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-amber-500 text-[16px]" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+<span class="text-body-sm">Sarah Oh</span>
+</div>
+</td>
+<td class="p-stack-md text-center text-on-surface font-semibold">92.1%</td>
+<td class="p-stack-md text-body-sm whitespace-nowrap">Oct 23, 11:00 AM</td>
+<td class="p-stack-md">
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-primary/10 text-primary rounded-lg transition-colors" title="View Submitted Answers">
+<span class="material-symbols-outlined text-[20px]">description</span>
+</button>
+<button class="p-1.5 hover:bg-secondary/10 text-secondary rounded-lg transition-colors" title="Download Report">
+<span class="material-symbols-outlined text-[20px]">file_download</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="p-stack-md"><input class="rounded border-outline-variant text-primary" type="checkbox"/></td>
+<td class="p-stack-md font-semibold text-on-surface">SAFE-DRIVE-202</td>
+<td class="p-stack-md text-on-surface-variant">Annual Safety Protocols</td>
+<td class="p-stack-md">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded bg-primary-container/20 flex items-center justify-center text-[10px] font-bold text-primary">FL</div>
+<span>Fleet Logistics</span>
+</div>
+</td>
+<td class="p-stack-md text-body-sm">Tom Harrison</td>
+<td class="p-stack-md">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold uppercase">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                                        Live
+                                    </span>
+</td>
+<td class="p-stack-md text-center font-mono-label">12 / 12</td>
+<td class="p-stack-md italic text-outline">—</td>
+<td class="p-stack-md text-center text-outline">—</td>
+<td class="p-stack-md text-body-sm whitespace-nowrap">Oct 24, 11:45 AM</td>
+<td class="p-stack-md">
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-primary/10 text-primary rounded-lg transition-colors" title="View Room Events">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-1.5 hover:bg-secondary/10 text-secondary rounded-lg transition-colors" title="Monitor Live">
+<span class="material-symbols-outlined text-[20px]">monitor_heart</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="p-stack-md bg-surface-container-lowest border-t border-outline-variant flex items-center justify-between">
+<p class="text-body-sm text-outline">Showing 1 to 4 of 1,240 rooms</p>
+<div class="flex gap-stack-sm">
+<button class="px-3 py-1.5 border border-outline-variant rounded hover:bg-surface-container-low text-body-sm disabled:opacity-50" disabled="">Previous</button>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded bg-primary text-on-primary text-body-sm">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-low text-body-sm">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-low text-body-sm">3</button>
+</div>
+<button class="px-3 py-1.5 border border-outline-variant rounded hover:bg-surface-container-low text-body-sm">Next</button>
+</div>
+</div>
+</div>
+<!-- Contextual Insights / Activity Feed (Secondary Bento Component) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl p-stack-lg">
+<div class="flex items-center justify-between mb-stack-md">
+<h4 class="font-headline-sm text-on-surface">Real-time Performance Trend</h4>
+<span class="text-label-sm text-outline">LIVE FEED (Global)</span>
+</div>
+<div class="h-48 flex items-end gap-2 px-2">
+<!-- Simple visual CSS bar chart for aesthetics -->
+<div class="flex-1 bg-primary/20 rounded-t h-[30%]"></div>
+<div class="flex-1 bg-primary/20 rounded-t h-[45%]"></div>
+<div class="flex-1 bg-primary/20 rounded-t h-[60%]"></div>
+<div class="flex-1 bg-primary/30 rounded-t h-[55%]"></div>
+<div class="flex-1 bg-primary/40 rounded-t h-[75%]"></div>
+<div class="flex-1 bg-primary/60 rounded-t h-[90%]"></div>
+<div class="flex-1 bg-primary/50 rounded-t h-[80%]"></div>
+<div class="flex-1 bg-primary/70 rounded-t h-[85%]"></div>
+<div class="flex-1 bg-primary/90 rounded-t h-[95%]"></div>
+<div class="flex-1 bg-primary rounded-t h-[100%]"></div>
+<div class="flex-1 bg-primary/80 rounded-t h-[80%]"></div>
+<div class="flex-1 bg-primary/60 rounded-t h-[70%]"></div>
+</div>
+<p class="mt-stack-md text-body-sm text-outline">Network load is currently <span class="text-emerald-600 font-bold">Stable</span>. All nodes functioning within normal parameters (Latency: 24ms).</p>
+</div>
+<div class="bg-white border border-outline-variant rounded-xl p-stack-lg">
+<h4 class="font-headline-sm text-on-surface mb-stack-md">Recent Events</h4>
+<div class="space-y-4">
+<div class="flex gap-3">
+<div class="mt-1 w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
+<div>
+<p class="text-body-sm font-semibold">Room Created: TECH-FEST-24</p>
+<p class="text-[11px] text-outline">2 mins ago • Enterprise: EduSpark</p>
+</div>
+</div>
+<div class="flex gap-3">
+<div class="mt-1 w-2 h-2 rounded-full bg-primary shrink-0"></div>
+<div>
+<p class="text-body-sm font-semibold">Quiz Ended: Annual Safety</p>
+<p class="text-[11px] text-outline">14 mins ago • Host: John Doe</p>
+</div>
+</div>
+<div class="flex gap-3">
+<div class="mt-1 w-2 h-2 rounded-full bg-error shrink-0"></div>
+<div>
+<p class="text-body-sm font-semibold">Flagged Response: ID-9021</p>
+<p class="text-[11px] text-outline">28 mins ago • Reason: Multiple Tabs</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-stack-lg py-2 text-primary font-label-md hover:bg-primary-container/10 rounded transition-colors">
+                        View Audit Log
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Mobile Navigation Toggle (Simple implementation) -->
+<button class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center z-50 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[28px]">menu</span>
+</button>
+<script>
+        // Micro-interactions for table rows
+        document.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.type !== 'checkbox' && !e.target.closest('button')) {
+                    // Logic to select row or navigate
+                    const checkbox = row.querySelector('input[type="checkbox"]');
+                    checkbox.checked = !checkbox.checked;
+                }
+            });
+        });
+
+        // Search highlight mock
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('input', (e) => {
+            console.log("Filtering for:", e.target.value);
+            // Dynamic filtering logic would go here
+        });
+    </script>
+</body></html>

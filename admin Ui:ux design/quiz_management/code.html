@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>biiQuiz Super Admin | Quizzes Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Courier+Prime&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#4d44e3",
+                        "secondary-fixed": "#e3dfff",
+                        "on-surface-variant": "#464555",
+                        "on-secondary-fixed-variant": "#444173",
+                        "surface-container": "#f0ecf9",
+                        "surface-bright": "#fcf8ff",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#c3c0ff",
+                        "primary-fixed-dim": "#c3c0ff",
+                        "surface-container-low": "#f5f2ff",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb695",
+                        "surface-variant": "#e4e1ee",
+                        "primary-container": "#4f46e5",
+                        "on-tertiary-container": "#ffd2be",
+                        "outline-variant": "#c7c4d8",
+                        "on-secondary-fixed": "#181445",
+                        "tertiary-fixed": "#ffdbcc",
+                        "on-surface": "#1b1b24",
+                        "on-secondary": "#ffffff",
+                        "secondary": "#5b598c",
+                        "background": "#fcf8ff",
+                        "on-secondary-container": "#514f81",
+                        "surface-dim": "#dcd8e5",
+                        "tertiary": "#7e3000",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed": "#351000",
+                        "outline": "#777587",
+                        "surface-container-highest": "#e4e1ee",
+                        "secondary-container": "#c7c3fe",
+                        "on-primary-container": "#dad7ff",
+                        "primary-fixed": "#e2dfff",
+                        "inverse-surface": "#302f39",
+                        "on-primary": "#ffffff",
+                        "inverse-on-surface": "#f3effc",
+                        "secondary-fixed-dim": "#c4c1fb",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed-variant": "#3323cc",
+                        "surface": "#fcf8ff",
+                        "primary": "#3525cd",
+                        "tertiary-container": "#a44100",
+                        "on-error-container": "#93000a",
+                        "on-background": "#1b1b24",
+                        "on-primary-fixed": "#0f0069",
+                        "on-tertiary-fixed-variant": "#7b2f00",
+                        "surface-container-high": "#eae6f4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "stack-sm": "8px",
+                        "stack-md": "16px",
+                        "container-padding-desktop": "32px",
+                        "container-padding-mobile": "16px",
+                        "gutter": "16px",
+                        "stack-lg": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "mono-label": ["Courier Prime"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                        "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "mono-label": ["12px", {"lineHeight": "16px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .active-tab-indicator { position: absolute; right: 0; top: 0; bottom: 0; width: 4px; background-color: #3525cd; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
+        .glass-header { backdrop-filter: blur(8px); background-color: rgba(255, 255, 255, 0.8); }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full w-[240px] hidden md:flex flex-col border-r border-outline-variant bg-white z-50 overflow-y-auto">
+<div class="px-6 py-8">
+<h1 class="text-headline-md font-headline-md font-bold text-primary">biiQuiz</h1>
+<p class="text-label-sm text-outline uppercase tracking-widest mt-1">Super Admin Console</p>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<!-- Dashboard -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<!-- Enterprises -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">business</span>
+<span class="font-label-md text-label-md">Enterprises</span>
+</a>
+<!-- Hosts -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">supervisor_account</span>
+<span class="font-label-md text-label-md">Hosts</span>
+</a>
+<!-- Students -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">school</span>
+<span class="font-label-md text-label-md">Students</span>
+</a>
+<!-- Quizzes (Active) -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-primary bg-primary-container/10 border-r-4 border-primary group relative" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">quiz</span>
+<span class="font-label-md text-label-md">Quizzes</span>
+</a>
+<!-- Live Rooms -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">live_tv</span>
+<span class="font-label-md text-label-md">Live Rooms</span>
+</a>
+<!-- Analytics -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">analytics</span>
+<span class="font-label-md text-label-md">Analytics</span>
+</a>
+<!-- Plans & Packages -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+<span class="font-label-md text-label-md">Plans &amp; Packages</span>
+</a>
+<!-- Upgrade Requests -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">notification_important</span>
+<span class="font-label-md text-label-md">Upgrade Requests</span>
+</a>
+<!-- Payments -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+<span class="font-label-md text-label-md">Payments</span>
+</a>
+<!-- Domains -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">domain</span>
+<span class="font-label-md text-label-md">Domains</span>
+</a>
+<!-- AI Settings -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">psychology</span>
+<span class="font-label-md text-label-md">AI Settings</span>
+</a>
+<!-- Support -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">support_agent</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+<!-- Audit Logs -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">list_alt</span>
+<span class="font-label-md text-label-md">Audit Logs</span>
+</a>
+<!-- Platform Settings -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-label-md text-label-md">Platform Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-outline-variant">
+<button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-error hover:bg-error-container/10 transition-colors">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</button>
+</div>
+</aside>
+<!-- Main Wrapper -->
+<main class="ml-0 md:ml-[240px] min-h-screen flex flex-col">
+<!-- TopNavBar (Shared Component) -->
+<header class="sticky top-0 z-40 h-16 bg-white border-b border-outline-variant flex justify-between items-center px-8">
+<div class="flex items-center flex-1 max-w-xl">
+<div class="relative w-full focus-within:ring-2 ring-primary/10 rounded-lg transition-all">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg pl-10 pr-4 py-2 text-body-md focus:ring-1 focus:ring-primary" placeholder="Search quizzes, hosts, or enterprises..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+</div>
+<div class="h-8 w-px bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-3 cursor-pointer group">
+<div class="text-right">
+<p class="text-label-md font-bold text-on-surface">Admin User</p>
+<p class="text-label-sm text-outline">Super Admin</p>
+</div>
+<img alt="Super Admin Profile" class="w-10 h-10 rounded-full border border-outline-variant group-hover:border-primary transition-colors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5BNL_u-GLi-gHSfQagxlSWBiCJWJGjZlRU6NihBAX56-4gpDwflNDbAdw_7XgiERXTYxKGKxPfLXW5DKcn8seUkWUAhAPCrBwGJ-CCl7aXtpZgneSUENpA4eDtrWbN3c3PLkrKfBlO35gFmB8_pd_42r1XcIabY_a-4oBuNVw2V5gH5qGVooRDhOz2AUHJPjy8mAjk5GYDgRNUcB2F55P5oku_xv4q9J59n9CRTzcs_Ah4qVeiXUBmbuW3ve0OMqnsRgy8btq4F8"/>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-8 space-y-stack-lg">
+<!-- Page Header Actions -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Quizzes Management</h2>
+<p class="text-body-md text-on-surface-variant">Global overview of all assessment content across the platform.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="inline-flex items-center gap-2 px-4 py-2 border border-outline-variant rounded bg-white text-on-surface font-label-md hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                        Filter
+                    </button>
+<button class="inline-flex items-center gap-2 px-4 py-2 border border-outline-variant rounded bg-white text-on-surface font-label-md hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                        Export Data
+                    </button>
+<button class="inline-flex items-center gap-2 px-6 py-2 bg-primary text-white rounded font-label-md shadow-sm hover:opacity-90 transition-opacity active:scale-95 duration-100">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        Create New
+                    </button>
+</div>
+</div>
+<!-- Dashboard Stats Grid (Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter">
+<div class="bg-white p-6 border border-outline-variant rounded-xl">
+<div class="flex items-center justify-between mb-4">
+<div class="p-2 bg-primary-container/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">quiz</span>
+</div>
+<span class="text-label-sm text-green-600 font-bold">+12%</span>
+</div>
+<p class="text-headline-md font-bold">12,482</p>
+<p class="text-label-md text-outline">Total Quizzes</p>
+</div>
+<div class="bg-white p-6 border border-outline-variant rounded-xl">
+<div class="flex items-center justify-between mb-4">
+<div class="p-2 bg-tertiary-container/10 rounded-lg text-tertiary">
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+<span class="text-label-sm text-on-surface-variant">Active Now</span>
+</div>
+<p class="text-headline-md font-bold">842</p>
+<p class="text-label-md text-outline">Live Sessions</p>
+</div>
+<div class="bg-white p-6 border border-outline-variant rounded-xl">
+<div class="flex items-center justify-between mb-4">
+<div class="p-2 bg-secondary-container/10 rounded-lg text-secondary">
+<span class="material-symbols-outlined">fact_check</span>
+</div>
+<span class="text-label-sm text-on-surface-variant">7-day avg</span>
+</div>
+<p class="text-headline-md font-bold">78.4%</p>
+<p class="text-label-md text-outline">Avg. Score</p>
+</div>
+<div class="bg-white p-6 border border-outline-variant rounded-xl">
+<div class="flex items-center justify-between mb-4">
+<div class="p-2 bg-error-container/10 rounded-lg text-error">
+<span class="material-symbols-outlined">report</span>
+</div>
+<span class="text-label-sm text-error font-bold">High</span>
+</div>
+<p class="text-headline-md font-bold">14</p>
+<p class="text-label-md text-outline">Flagged Content</p>
+</div>
+</div>
+<!-- Main Data Table Container -->
+<div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+<!-- Table Controls -->
+<div class="px-6 py-4 border-b border-outline-variant flex items-center justify-between bg-surface-container-lowest">
+<div class="flex items-center gap-4">
+<div class="relative group">
+<select class="appearance-none bg-white border border-outline-variant rounded px-4 py-1.5 pr-8 text-label-md focus:ring-primary focus:border-primary">
+<option>Status: All</option>
+<option>Published</option>
+<option>Draft</option>
+<option>Archived</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[16px] pointer-events-none">expand_more</span>
+</div>
+<div class="relative group">
+<select class="appearance-none bg-white border border-outline-variant rounded px-4 py-1.5 pr-8 text-label-md focus:ring-primary focus:border-primary">
+<option>Enterprise: All</option>
+<option>Starlight University</option>
+<option>TechCorp Academy</option>
+<option>Global Edu Services</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[16px] pointer-events-none">expand_more</span>
+</div>
+</div>
+<div class="text-label-md text-outline">
+                        Showing 1-10 of 12,482 quizzes
+                    </div>
+</div>
+<!-- Table -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="p-4 border-b border-outline-variant w-10">
+<input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+</th>
+<th class="p-4 border-b border-outline-variant font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Quiz Name</th>
+<th class="p-4 border-b border-outline-variant font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Enterprise</th>
+<th class="p-4 border-b border-outline-variant font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Host</th>
+<th class="p-4 border-b border-outline-variant font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Stats</th>
+<th class="p-4 border-b border-outline-variant font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Status</th>
+<th class="p-4 border-b border-outline-variant font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/30">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="p-4">
+<input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex flex-col">
+<span class="font-bold text-body-md">Advanced React Frameworks</span>
+<span class="text-label-sm text-outline">ID: QUIZ-9901</span>
+</div>
+</td>
+<td class="p-4 text-body-md">TechCorp Academy</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<img alt="Host" class="w-6 h-6 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3yKTzblBvSmBVZfQBOg1PJEMv_prauXrE-N6KC27XGEVjR26zl3vaAz2-GJg3u5PFN8Hdpde_eQ9MnAlgdaXVfqy2h5o4T9UnOCaaOKk-wwI65ItQc5Am02XhQuJvynxc4WdYd2xY8elOj6B5Ff93wtSpeKD8s8lT3afx4FKn5YvYqiFDZYjHNT0AS6k2y6tMAOBhEV6kPRxnv54hXQFFJK5tATkapgXo8D2Dwtu-VFaIVn03ZVY--ITwwmIZkkqrMoK3-GhMPuU"/>
+<span class="text-body-md">Dr. Sarah Jenkins</span>
+</div>
+</td>
+<td class="p-4">
+<div class="flex flex-col gap-1">
+<span class="text-label-sm text-on-surface-variant">45 Questions</span>
+<span class="text-label-sm text-on-surface-variant">1,204 Students</span>
+</div>
+</td>
+<td class="p-4">
+<span class="px-2 py-1 rounded bg-green-100 text-green-700 text-label-sm font-bold">PUBLISHED</span>
+</td>
+<td class="p-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant" title="View Rooms">
+<span class="material-symbols-outlined text-[20px]">live_tv</span>
+</button>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant" title="View Content">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="p-4">
+<input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex flex-col">
+<span class="font-bold text-body-md">Molecular Biology 101</span>
+<span class="text-label-sm text-outline">ID: QUIZ-8422</span>
+</div>
+</td>
+<td class="p-4 text-body-md">Starlight University</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<img alt="Host" class="w-6 h-6 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-KIUXkbRMhENMP-4hmbT-Md6Wgyhyk6duB_0WjoqIn9eTmjT_8s589UaeJSOrZMGp9wHvWsApheNJ3ERjrm_8A9xcBy8S0wfjfLciUbN7Zb44P6ew1TrboPpTvHAf3mZFsl6nqtEjFDDtwRd2khwXFkUdUSABByhHcfWT4jO91mjHXGo21YVmgoons_tMDQFd8CvobLVIZYrT9DsIK5lnVIgA9-8iksg_1zaZGbmF3l8gszLugWZfpme7vRhi71zvNKr2aBbh32A"/>
+<span class="text-body-md">Prof. Michael Chen</span>
+</div>
+</td>
+<td class="p-4">
+<div class="flex flex-col gap-1">
+<span class="text-label-sm text-on-surface-variant">30 Questions</span>
+<span class="text-label-sm text-on-surface-variant">4,890 Students</span>
+</div>
+</td>
+<td class="p-4">
+<span class="px-2 py-1 rounded bg-green-100 text-green-700 text-label-sm font-bold">PUBLISHED</span>
+</td>
+<td class="p-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">live_tv</span>
+</button>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="p-4">
+<input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex flex-col">
+<span class="font-bold text-body-md">Global Economics Midterm</span>
+<span class="text-label-sm text-outline">ID: QUIZ-1055</span>
+</div>
+</td>
+<td class="p-4 text-body-md">Global Edu Services</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<img alt="Host" class="w-6 h-6 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCrmn5pq_wcwSqs1fcjCpagctwL3qNP-QYIt2jMJmQtpsEsq-FJgoIyMMB7WCS5_Ac1iEBZ52gRXnjq6_mEpNIvIcXS6l6-r0c6DQ0CjyTZsBXm3BaJi0n96vql_YnSiYTEak9Le4T2Xlw37fZe0GWSRWXe2vJnguPw8xBGJgDDwqrpQrTkb6-X4Xh73zMy-jCuVwN7ID2Jm-DSHmD1g2QyFMkr5OAWZIV09Vs9SY4IOO01V2lFrsjchgUExLtRGbcsugGpbsACR_I"/>
+<span class="text-body-md">Elena Rodriguez</span>
+</div>
+</td>
+<td class="p-4">
+<div class="flex flex-col gap-1">
+<span class="text-label-sm text-on-surface-variant">60 Questions</span>
+<span class="text-label-sm text-on-surface-variant">0 Students</span>
+</div>
+</td>
+<td class="p-4">
+<span class="px-2 py-1 rounded bg-secondary-container/20 text-secondary text-label-sm font-bold">DRAFT</span>
+</td>
+<td class="p-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant opacity-30 cursor-not-allowed">
+<span class="material-symbols-outlined text-[20px]">live_tv</span>
+</button>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="p-4">
+<input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex flex-col">
+<span class="font-bold text-body-md">Q3 Product Knowledge</span>
+<span class="text-label-sm text-outline">ID: QUIZ-2281</span>
+</div>
+</td>
+<td class="p-4 text-body-md">TechCorp Academy</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<img alt="Host" class="w-6 h-6 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4laIJy7scfGbMEMi1EyIoHlIVtWglVHWOc7_5ApKO2AifmaCpaHmJPz4-9DarTSiHtQt_c8QKLwi335ohl8diRwWDf6VSFWugsPstdxfQWBmak-THX5dbRy9yEIgp7-7OjPCBNao-LyoXU2wvqlI0LqR0vqmYCXkUHnbDXUfRj190-8JaDvRajGallJCKQ8YzrNcKa7pcZyurGYuUNToh7Aj_BE-fT1l-Uc0g4CYtySELkpePmPQg--AI7mZBUoGHXyQql5J9cIc"/>
+<span class="text-body-md">Marcus Thorne</span>
+</div>
+</td>
+<td class="p-4">
+<div class="flex flex-col gap-1">
+<span class="text-label-sm text-on-surface-variant">25 Questions</span>
+<span class="text-label-sm text-on-surface-variant">892 Students</span>
+</div>
+</td>
+<td class="p-4">
+<span class="px-2 py-1 rounded bg-red-100 text-red-700 text-label-sm font-bold">FLAGGED</span>
+</td>
+<td class="p-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="p-1.5 hover:bg-surface-container-high rounded text-error" title="Review Flags">
+<span class="material-symbols-outlined text-[20px]">report</span>
+</button>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-1.5 hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-6 py-4 flex items-center justify-between bg-white border-t border-outline-variant">
+<button class="px-4 py-2 text-label-md border border-outline-variant rounded hover:bg-surface-container-low transition-colors disabled:opacity-50" disabled="">
+                        Previous
+                    </button>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded bg-primary text-white text-label-md font-bold">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-low text-label-md">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-low text-label-md">3</button>
+<span class="w-8 h-8 flex items-center justify-center text-label-md">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-low text-label-md">124</button>
+</div>
+<button class="px-4 py-2 text-label-md border border-outline-variant rounded hover:bg-surface-container-low transition-colors">
+                        Next
+                    </button>
+</div>
+</div>
+<!-- Bottom Dashboard View (Secondary patterns) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- Usage Limits -->
+<div class="bg-white p-6 border border-outline-variant rounded-xl flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm">Platform Resource Usage</h3>
+<span class="material-symbols-outlined text-outline">info</span>
+</div>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-label-md mb-2">
+<span class="text-on-surface-variant">Storage (Media/Images)</span>
+<span class="font-bold">4.2 TB / 5.0 TB</span>
+</div>
+<div class="h-2 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 84%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-label-md mb-2">
+<span class="text-on-surface-variant">Concurrent Live Students</span>
+<span class="font-bold">24,102 / 30,000</span>
+</div>
+<div class="h-2 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 72%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-label-md mb-2">
+<span class="text-on-surface-variant">AI Generation API Credits</span>
+<span class="font-bold">92% consumed</span>
+</div>
+<div class="h-2 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-error" style="width: 92%"></div>
+</div>
+<p class="text-[10px] text-error mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">warning</span>
+                                Critical threshold reached. Auto-replenish scheduled.
+                            </p>
+</div>
+</div>
+</div>
+<!-- Recent Audit Activities -->
+<div class="bg-white p-6 border border-outline-variant rounded-xl flex flex-col gap-4 lg:col-span-2">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm">Global Audit Log</h3>
+<button class="text-primary font-label-md hover:underline">View All Logs</button>
+</div>
+<div class="space-y-4">
+<div class="flex items-start gap-4 p-3 rounded hover:bg-surface-container-low transition-colors border-l-4 border-transparent hover:border-primary">
+<div class="p-2 bg-surface-container rounded-full">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant">edit</span>
+</div>
+<div class="flex-1">
+<p class="text-body-md"><span class="font-bold">Admin Sarah</span> modified quiz settings for "Organic Chemistry Lab"</p>
+<p class="text-label-sm text-outline">Starlight University • 2 minutes ago</p>
+</div>
+<button class="text-label-md text-outline hover:text-on-surface">Details</button>
+</div>
+<div class="flex items-start gap-4 p-3 rounded hover:bg-surface-container-low transition-colors border-l-4 border-transparent hover:border-primary">
+<div class="p-2 bg-surface-container rounded-full">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant">delete</span>
+</div>
+<div class="flex-1">
+<p class="text-body-md"><span class="font-bold">System Automator</span> archived 14 expired quiz drafts</p>
+<p class="text-label-sm text-outline">Platform Wide • 1 hour ago</p>
+</div>
+<button class="text-label-md text-outline hover:text-on-surface">Details</button>
+</div>
+<div class="flex items-start gap-4 p-3 rounded hover:bg-surface-container-low transition-colors border-l-4 border-transparent hover:border-primary">
+<div class="p-2 bg-surface-container rounded-full">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant">lock_open</span>
+</div>
+<div class="flex-1">
+<p class="text-body-md"><span class="font-bold">Security Module</span> detected multiple login failures</p>
+<p class="text-label-sm text-outline">Enterprise ID: ENT-404 • 3 hours ago</p>
+</div>
+<button class="text-label-md text-outline hover:text-on-surface">Details</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- FAB (Suppressed based on rules for admin management screens, but shown here for high-end UI demonstration if needed. Actually suppressed per mandate for Details/Settings/Transactional contexts, but for a Dashboard/Main listing it remains optional. Removing for strict compliance with Admin Console aesthetic.) -->
+<!-- Micro-interactions Script -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Mobile Sidebar Toggle (Logic only, actual hamburger would need adding to TopNavBar for full mobile)
+            const sidebar = document.querySelector('aside');
+            
+            // Tooltip or small interaction simulation
+            const rows = document.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                row.addEventListener('click', (e) => {
+                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.closest('button')) {
+                        // Logic to navigate to details or select
+                        const checkbox = row.querySelector('input[type="checkbox"]');
+                        checkbox.checked = !checkbox.checked;
+                        if(checkbox.checked) {
+                            row.classList.add('bg-primary-container/5');
+                        } else {
+                            row.classList.remove('bg-primary-container/5');
+                        }
+                    }
+                });
+            });
+
+            // Smooth scale on primary CTA
+            const cta = document.querySelector('.bg-primary');
+            if(cta) {
+                cta.addEventListener('mousedown', () => cta.style.transform = 'scale(0.95)');
+                cta.addEventListener('mouseup', () => cta.style.transform = 'scale(1)');
+                cta.addEventListener('mouseleave', () => cta.style.transform = 'scale(1)');
+            }
+        });
+    </script>
+</body></html>

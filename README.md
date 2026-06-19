@@ -50,9 +50,29 @@ USE_DJANGO_API="true"
 DJANGO_API_URL="http://127.0.0.1:8000"
 DJANGO_DEBUG="true"
 DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"
+APP_BASE_URL="http://localhost:3000"
+EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST="smtp.gmail.com"
+EMAIL_PORT="587"
+EMAIL_HOST_USER="your-gmail@gmail.com"
+EMAIL_HOST_PASSWORD="your-google-app-password"
+EMAIL_USE_TLS="true"
+DEFAULT_FROM_EMAIL="your-gmail@gmail.com"
+PASSWORD_RESET_OTP_MINUTES="10"
 ```
 
 `REDIS_URL` is optional for basic local development. PostgreSQL is required.
+
+Password reset uses a 6-digit OTP that expires after `PASSWORD_RESET_OTP_MINUTES`. For Gmail SMTP, enable 2-Step Verification on the Google account, create a Google App Password, and use that app password as `EMAIL_HOST_PASSWORD`. Do not use your normal Gmail password. Keep `DEFAULT_FROM_EMAIL` the same as `EMAIL_HOST_USER` unless you have configured and verified a custom sender/domain alias.
+
+After changing email settings, restart the Django backend and smoke-test SMTP:
+
+```bash
+cd backend
+./env/bin/python manage.py send_test_email --to your-email@gmail.com
+```
+
+If you see the full email printed in the terminal instead of receiving it, `EMAIL_BACKEND` is still set to the console backend.
 
 Generate Prisma Client:
 
@@ -122,9 +142,28 @@ npm run dev
 The app has two authenticated roles:
 
 - `host`: normal educator account
-- `admin`: app super user for admin pages and Host Pass management
+- `admin`: organization admin or platform Super Admin depending on organization assignment
 
 Participants do not need accounts.
+
+### Default Super Admin
+
+A platform Super Admin can access the full Super Admin console. The account must have `role = 'admin'` and no organization assigned.
+
+Created local Super Admin:
+
+```txt
+Email: super.admin@biiquiz.com
+Password: SuperAdmin@12345
+```
+
+Login:
+
+[http://localhost:3000/login](http://localhost:3000/login)
+
+Super Admin console:
+
+[http://localhost:3000/super-admin/dashboard](http://localhost:3000/super-admin/dashboard)
 
 ### Create a Host User
 
@@ -140,7 +179,7 @@ Open:
 
 Create an account with your name, email, and password. New registered users are created with the `host` role by default.
 
-### Create an Admin / Super User
+### Create an Organization Admin
 
 First create a normal host user from the register page. Then promote that user to `admin` in PostgreSQL:
 
@@ -176,11 +215,20 @@ Now log in at:
 
 [http://localhost:3000/login](http://localhost:3000/login)
 
-Admin pages are available from:
+Organization admin pages are available from:
 
 [http://localhost:3000/admin](http://localhost:3000/admin)
 
-This creates an app-level super user. It is different from a PostgreSQL database superuser.
+This creates an application admin. To make the user a platform Super Admin for `/super-admin/*`, make sure `organization_id` is `NULL`:
+
+```sql
+update users
+set role = 'admin',
+    organization_id = null
+where email = 'admin@example.com';
+```
+
+This is different from a PostgreSQL database superuser.
 
 ### Create Demo Users
 
@@ -256,11 +304,13 @@ npm run start
 | `npm run typecheck` | Run TypeScript without emitting files. |
 | `npm run prisma:generate` | Generate Prisma Client. |
 | `npm run prisma:migrate` | Run Prisma migrations locally. |
+| `npm run prisma:deploy` | Apply committed Prisma migrations non-interactively. |
 | `npm run prisma:studio` | Open Prisma Studio. |
 | `npm run seed:test-users` | Create 10 demo users and seeded app data. |
 | `npm test` | Run Vitest tests. |
 | `npm run backend:check` | Validate the Django backend from the root wrapper. |
 | `npm run backend:seed` | Seed Django test users from the root wrapper. |
+| `npm run backend:verify-super-admin` | Verify all Super Admin database payloads and normalized relationships. |
 | `npm run backend:dev` | Run the Django API server on port 8000. |
 
 ## Django Scripts
@@ -271,6 +321,9 @@ Run from `backend/` after activating the virtual environment:
 | --- | --- |
 | `python manage.py check` | Validate Django settings, models, and URL configuration. |
 | `python manage.py seed_test_users` | Create 10 demo users and seeded app data through Django. |
+| `python manage.py verify_super_admin_data` | Smoke-test every Super Admin module against PostgreSQL. |
+
+Seeded organizations are stored as sample tenants. Super Admin lists hide them by default; enable **Include samples** in a filter bar when testing seeded users and data. Production startup never runs the seed command automatically.
 | `python manage.py runserver 127.0.0.1:8000` | Start the Django API server. |
 
 ## BYOK Gemini AI
@@ -281,18 +334,18 @@ AI question generation uses a bring-your-own-key flow:
 - Multiple user-provided keys can be used for fallback.
 - The backend never stores Gemini API keys.
 - `NEXT_PUBLIC_GEMINI_MODEL` controls the Gemini model name used by the frontend.
-- Generated JSON is first saved to the backend as raw JSON.
-- The backend validates the JSON and creates draft questions only when valid.
-- If validation fails, the frontend can repair the saved JSON with the user's Gemini key and resubmit it.
-- Publishing is blocked until backend validation passes and valid draft rows exist.
+- Quick AI Gen keeps raw generated JSON, validation errors, and repair attempts in browser session state only.
+- The frontend repairs invalid JSON with Gemini until validation passes or the repair limit is reached.
+- Only final accepted MCQ question payloads are sent to `/api/quizzes/[quizId]/questions`.
+- The backend still performs final validation and permission checks before saving questions.
 
 Manual real-key smoke test:
 
 1. Log in as a host.
 2. Create or open a quiz.
 3. Open AI generation and enter one or more Gemini keys.
-4. Generate questions, repair if validation errors appear, then publish.
-5. Confirm the quiz editor shows real questions and no Gemini key appears in database records or logs.
+4. Generate questions, repair if validation errors appear, then apply valid questions to the quiz.
+5. Confirm saved questions appear in the quiz editor flow and no Gemini key, raw JSON, or repair log appears in database records.
 
 ## Troubleshooting
 

@@ -25,7 +25,7 @@ Assumption: the product documentation uses **Enterprise workflow**, **Admin**, a
 
 Hosts are educators or trainers who create and run quizzes. They use `/dashboard/*` and `/host/room/*`.
 
-- Owns quiz setup, question editing, BYOK AI generation, room creation, and live room control.
+- Owns quiz setup, question editing, AI generation, room creation, and live room control.
 - Can view host-level analytics and host pass usage prompts.
 - Must not manage organization users, organization settings, pass inventory, or tenant-wide analytics.
 - Uses host-facing navigation and the Host workspace UI.

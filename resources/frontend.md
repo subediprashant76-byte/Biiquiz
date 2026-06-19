@@ -1,5 +1,7 @@
 # Frontend Implementation
 
+Super Admin collection pages use Django-backed pagination, filters, sample visibility, CSV exports, and validated response contracts. Runtime business-data fixtures and generated plan/domain/payment fallbacks are not used.
+
 ## UI Source
 Designs are based on files in:
 `UI:Ux design/`
@@ -41,7 +43,7 @@ The implemented UI lives in `frontend/` and uses the local `academic_precision` 
 
 ## User Flow
 1. Public users land on `/`, choose `/pricing`, `/register`, `/login`, or `/join`.
-2. Hosts register/login, open `/dashboard`, create a quiz, add questions manually or use BYOK Gemini AI, then create a live room.
+2. Hosts register/login, open `/dashboard`, create a quiz, add questions manually or use AI generation, then create a live room.
 3. Participants join by room code, answer active questions, and view the leaderboard.
 4. Hosts control sessions from `/host/room/[roomCode]`.
 5. Organization admins open the Organization Console at `/admin` to manage people, host passes, analytics, AI usage, settings, and advanced organization dashboards.
@@ -116,16 +118,15 @@ Frontend calls use relative `/api/*` URLs from `frontend/`. Default behavior use
 | `/api/rooms/[roomCode]/pause` | POST | Pause room | none | room |
 | `/api/rooms/[roomCode]/next-question` | POST | Advance room | none | room |
 | `/api/rooms/[roomCode]/end` | POST | End room | none | room |
-| `/api/ai/generate-questions` | POST | Save generated JSON | input, generatedJson | generation |
-| `/api/ai/generations/[generationId]` | GET | Load AI drafts | none | generation with drafts |
-| `/api/ai/publish-questions` | POST | Publish drafts | generationId | quiz questions |
+| Browser Gemini API | POST | Generate and repair AI JSON directly from browser BYOK keys | prompt, model settings | temporary JSON only |
+| `/api/quizzes/[quizId]/questions` | POST | Save final accepted AI/manual question | MCQ fields | question |
 | `/api/admin/*` | GET | Existing admin summaries | none | admin data |
 | `/api/host/dashboard` | GET | Host dashboard data | none | stats, drafts, active rooms |
 | `/api/host/analytics` | GET | Host analytics data | none | stats, subjects, recent rooms |
 | `/api/host/host-passes` | GET | Host pass availability | none | stats, passes |
 
 ## State Management
-Client state is local React state. Live room, participant question, and leaderboard screens poll server endpoints. AI keys are stored only in browser state/localStorage when the user opts in. Host and organization app screens read backend `/api/*` data; `src/lib/ui-data.ts` is limited to public landing/pricing content.
+Client state is local React state. Live room, participant question, and leaderboard screens poll server endpoints. AI keys are stored only in browser state/localStorage when the user opts in. Quick AI Gen stores raw JSON, validation errors, and repair attempts only in browser session state, then posts final accepted questions to the existing question save API. Host and organization app screens read backend `/api/*` data; `src/lib/ui-data.ts` is limited to public landing/pricing content.
 
 ## Pending Items
 - Add richer admin actions for assigning/extending/revoking host passes.
