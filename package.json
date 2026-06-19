@@ -1,0 +1,29 @@
+{
+  "name": "host-biiquiz-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start",
+    "lint": "npm --prefix frontend run lint",
+    "typecheck": "npm --prefix frontend run typecheck",
+    "test": "npm --prefix frontend test",
+    "prisma:generate": "npm --prefix frontend run prisma:generate",
+    "prisma:migrate": "npm --prefix frontend run prisma:migrate",
+    "prisma:studio": "npm --prefix frontend run prisma:studio",
+    "seed:test-users": "npm --prefix frontend run seed:test-users",
+    "backend:check": "cd backend && python manage.py check",
+    "backend:seed": "cd backend && python manage.py seed_test_users",
+    "backend:dev": "cd backend && python manage.py runserver 127.0.0.1:8000"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  },
+  "workspaces": [
+    "frontend"
+  ]
+}

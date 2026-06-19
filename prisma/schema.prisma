@@ -1,0 +1,458 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  admin
+  host
+}
+
+enum OrganizationPlan {
+  free
+  basic
+  pro
+  school
+  enterprise
+}
+
+enum QuizVisibility {
+  private
+  organization
+  public
+}
+
+enum QuizStatus {
+  draft
+  published
+  archived
+}
+
+enum RoomStatus {
+  waiting
+  active
+  paused
+  ended
+}
+
+enum CorrectOption {
+  A
+  B
+  C
+  D
+}
+
+enum ScoringMode {
+  simple
+  speed_bonus
+}
+
+enum AiGenerationStatus {
+  generated
+  validation_failed
+  repaired
+  ready_for_preview
+  published
+  failed
+}
+
+enum AiDraftStatus {
+  draft
+  approved
+  deleted
+}
+
+enum AiUsageAction {
+  generate
+  repair
+  publish
+}
+
+enum UsageStatus {
+  success
+  failed
+}
+
+model Organization {
+  id            String       @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String       @unique
+  plan          OrganizationPlan @default(free)
+  brandingJson  Json?        @map("branding_json")
+  settingsJson  Json?        @map("settings_json")
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  users         User[]
+  quizzes       Quiz[]
+  rooms         Room[]
+  hostPasses    HostPass[]
+  aiUsageLogs   AiUsageLog[]
+  invites       OrganizationInvite[]
+  auditLogs     AuditLog[]
+  dailyStats    OrganizationDailyStat[]
+
+  @@index([plan])
+  @@map("organizations")
+}
+
+model User {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String?       @map("organization_id") @db.Uuid
+  name           String
+  email          String        @unique
+  passwordHash   String        @map("password_hash")
+  role           UserRole      @default(host)
+  isActive       Boolean       @default(true) @map("is_active")
+  lastLoginAt    DateTime?     @map("last_login_at") @db.Timestamptz
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  quizzes        Quiz[]
+  rooms          Room[]
+  assignedPasses HostPass[]    @relation("AssignedHostPass")
+  createdPasses  HostPass[]    @relation("CreatedHostPass")
+  aiGenerations  AiGeneration[]
+  aiUsageLogs    AiUsageLog[]
+  invitesSent    OrganizationInvite[]
+  auditLogs      AuditLog[]
+
+  @@index([role])
+  @@index([organizationId])
+  @@index([organizationId, role])
+  @@map("users")
+}
+
+model Quiz {
+  id               String         @id @default(uuid()) @db.Uuid
+  hostId           String         @map("host_id") @db.Uuid
+  organizationId   String?        @map("organization_id") @db.Uuid
+  title            String
+  subject          String?
+  description      String?
+  defaultTimeLimit Int            @default(30) @map("default_time_limit")
+  defaultMarks     Int            @default(1) @map("default_marks")
+  visibility       QuizVisibility @default(private)
+  status           QuizStatus     @default(draft)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  host             User           @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  organization     Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  questions        Question[]
+  rooms            Room[]
+  aiGenerations    AiGeneration[]
+  aiDrafts         AiQuestionDraft[]
+
+  @@index([hostId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([status])
+  @@map("quizzes")
+}
+
+model Question {
+  id           String        @id @default(uuid()) @db.Uuid
+  quizId       String        @map("quiz_id") @db.Uuid
+  questionText String        @map("question_text")
+  optionA      String        @map("option_a")
+  optionB      String        @map("option_b")
+  optionC      String        @map("option_c")
+  optionD      String        @map("option_d")
+  correctOption CorrectOption @map("correct_option")
+  marks        Int
+  timeLimit    Int           @map("time_limit")
+  explanation  String?
+  orderNumber  Int           @map("order_number")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  quiz         Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  rooms        Room[]
+  answers      Answer[]
+  roomStats    RoomQuestionStat[]
+
+  @@unique([quizId, orderNumber])
+  @@index([quizId])
+  @@index([quizId, orderNumber])
+  @@map("questions")
+}
+
+model Room {
+  id                       String       @id @default(uuid()) @db.Uuid
+  quizId                   String       @map("quiz_id") @db.Uuid
+  hostId                   String       @map("host_id") @db.Uuid
+  organizationId           String?      @map("organization_id") @db.Uuid
+  roomCode                 String       @unique @map("room_code")
+  roomName                 String       @map("room_name")
+  status                   RoomStatus   @default(waiting)
+  participantLimit         Int          @default(50) @map("participant_limit")
+  freeLimit                Int          @default(50) @map("free_limit")
+  hostPassId               String?      @map("host_pass_id") @db.Uuid
+  currentQuestionId        String?      @map("current_question_id") @db.Uuid
+  currentQuestionOrder     Int?         @map("current_question_order")
+  currentQuestionStartedAt DateTime?    @map("current_question_started_at") @db.Timestamptz
+  currentQuestionEndsAt    DateTime?    @map("current_question_ends_at") @db.Timestamptz
+  showLeaderboard          Boolean      @default(true) @map("show_leaderboard")
+  showCorrectAnswer        Boolean      @default(false) @map("show_correct_answer")
+  scoringMode              ScoringMode  @default(simple) @map("scoring_mode")
+  createdAt                DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  startedAt                DateTime?    @map("started_at") @db.Timestamptz
+  endedAt                  DateTime?    @map("ended_at") @db.Timestamptz
+  updatedAt                DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  quiz                     Quiz         @relation(fields: [quizId], references: [id], onDelete: Restrict)
+  host                     User         @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  organization             Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  hostPass                 HostPass?    @relation(fields: [hostPassId], references: [id], onDelete: SetNull)
+  currentQuestion          Question?    @relation(fields: [currentQuestionId], references: [id], onDelete: SetNull)
+  participants             Participant[]
+  answers                  Answer[]
+  questionStats            RoomQuestionStat[]
+  participantSummaries     ParticipantRoomSummary[]
+
+  @@index([hostId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([status])
+  @@index([quizId])
+  @@map("rooms")
+}
+
+model Participant {
+  id                  String    @id @default(uuid()) @db.Uuid
+  roomId              String    @map("room_id") @db.Uuid
+  displayName         String    @map("display_name")
+  joinTokenHash       String    @map("join_token_hash")
+  score               Int       @default(0)
+  correctCount        Int       @default(0) @map("correct_count")
+  wrongCount          Int       @default(0) @map("wrong_count")
+  attemptedCount      Int       @default(0) @map("attempted_count")
+  totalResponseTimeMs Int       @default(0) @map("total_response_time_ms")
+  rankSnapshot        Int?      @map("rank_snapshot")
+  joinedAt            DateTime  @default(now()) @map("joined_at") @db.Timestamptz
+  lastSeenAt          DateTime? @map("last_seen_at") @db.Timestamptz
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  room                Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  answers             Answer[]
+  roomSummaries       ParticipantRoomSummary[]
+
+  @@unique([roomId, joinTokenHash])
+  @@index([roomId, score, totalResponseTimeMs])
+  @@index([roomId, joinedAt])
+  @@map("participants")
+}
+
+model Answer {
+  id             String        @id @default(uuid()) @db.Uuid
+  roomId         String        @map("room_id") @db.Uuid
+  participantId  String        @map("participant_id") @db.Uuid
+  questionId     String        @map("question_id") @db.Uuid
+  selectedOption CorrectOption @map("selected_option")
+  isCorrect      Boolean       @map("is_correct")
+  scoreAwarded   Int           @default(0) @map("score_awarded")
+  answeredAt     DateTime      @default(now()) @map("answered_at") @db.Timestamptz
+  responseTimeMs Int           @map("response_time_ms")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  room           Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  participant    Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  question       Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, questionId])
+  @@index([roomId, questionId])
+  @@index([participantId])
+  @@index([questionId])
+  @@index([roomId, scoreAwarded])
+  @@map("answers")
+}
+
+model HostPass {
+  id                     String       @id @default(uuid()) @db.Uuid
+  passCodeHash           String       @unique @map("pass_code_hash")
+  planName               String       @map("plan_name")
+  participantLimit       Int          @map("participant_limit")
+  validUntil             DateTime     @map("valid_until") @db.Timestamptz
+  isActive               Boolean      @default(true) @map("is_active")
+  assignedHostId         String?      @map("assigned_host_id") @db.Uuid
+  assignedOrganizationId String?      @map("assigned_organization_id") @db.Uuid
+  createdByAdminId       String?      @map("created_by_admin_id") @db.Uuid
+  usedAt                 DateTime?    @map("used_at") @db.Timestamptz
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  assignedHost           User?        @relation("AssignedHostPass", fields: [assignedHostId], references: [id], onDelete: SetNull)
+  assignedOrganization   Organization? @relation(fields: [assignedOrganizationId], references: [id], onDelete: SetNull)
+  createdByAdmin         User?        @relation("CreatedHostPass", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  rooms                  Room[]
+
+  @@index([assignedHostId])
+  @@index([assignedOrganizationId])
+  @@index([validUntil])
+  @@index([isActive])
+  @@map("host_passes")
+}
+
+model AiGeneration {
+  id               String             @id @default(uuid()) @db.Uuid
+  hostId           String             @map("host_id") @db.Uuid
+  quizId           String             @map("quiz_id") @db.Uuid
+  inputPrompt      String             @map("input_prompt")
+  inputSubject     String             @map("input_subject")
+  inputLevel       String             @map("input_level")
+  inputTopic       String             @map("input_topic")
+  inputDifficulty  String             @map("input_difficulty")
+  inputLanguage    String             @map("input_language")
+  questionCount    Int                @map("question_count")
+  marksPerQuestion Int                @map("marks_per_question")
+  timePerQuestion  Int                @map("time_per_question")
+  rawJson          Json?              @map("raw_json")
+  fixedJson        Json?              @map("fixed_json")
+  validationErrors Json?              @map("validation_errors")
+  status           AiGenerationStatus
+  attemptCount     Int                @default(0) @map("attempt_count")
+  model            String?
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  host             User               @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  quiz             Quiz               @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  drafts           AiQuestionDraft[]
+
+  @@index([hostId, createdAt])
+  @@index([quizId, createdAt])
+  @@index([status])
+  @@map("ai_generations")
+}
+
+model AiQuestionDraft {
+  id            String        @id @default(uuid()) @db.Uuid
+  generationId  String        @map("generation_id") @db.Uuid
+  quizId        String        @map("quiz_id") @db.Uuid
+  questionText  String        @map("question_text")
+  optionA       String        @map("option_a")
+  optionB       String        @map("option_b")
+  optionC       String        @map("option_c")
+  optionD       String        @map("option_d")
+  correctOption CorrectOption @map("correct_option")
+  marks         Int
+  timeLimit     Int           @map("time_limit")
+  explanation   String?
+  status        AiDraftStatus @default(draft)
+  orderNumber   Int           @map("order_number")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  generation    AiGeneration  @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  quiz          Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([generationId, orderNumber])
+  @@index([quizId])
+  @@index([status])
+  @@map("ai_question_drafts")
+}
+
+model AiUsageLog {
+  id             String        @id @default(uuid()) @db.Uuid
+  hostId         String        @map("host_id") @db.Uuid
+  organizationId String?       @map("organization_id") @db.Uuid
+  action         AiUsageAction
+  questionCount  Int           @default(0) @map("question_count")
+  model          String?
+  status         UsageStatus
+  errorMessage   String?       @map("error_message")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  host           User          @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([hostId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([action, createdAt])
+  @@map("ai_usage_logs")
+}
+
+model OrganizationInvite {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  email           String
+  role            UserRole     @default(host)
+  tokenHash       String       @unique @map("token_hash")
+  invitedByUserId String?      @map("invited_by_user_id") @db.Uuid
+  acceptedAt      DateTime?    @map("accepted_at") @db.Timestamptz
+  expiresAt       DateTime     @map("expires_at") @db.Timestamptz
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy       User?        @relation(fields: [invitedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([email])
+  @@map("organization_invites")
+}
+
+model AuditLog {
+  id             String        @id @default(uuid()) @db.Uuid
+  actorUserId    String?       @map("actor_user_id") @db.Uuid
+  organizationId String?       @map("organization_id") @db.Uuid
+  action         String
+  entityType     String        @map("entity_type")
+  entityId       String?       @map("entity_id") @db.Uuid
+  metadataJson   Json?         @map("metadata_json")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  actor          User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+model RoomQuestionStat {
+  id                    String   @id @default(uuid()) @db.Uuid
+  roomId                String   @map("room_id") @db.Uuid
+  questionId            String   @map("question_id") @db.Uuid
+  attemptCount          Int      @default(0) @map("attempt_count")
+  correctCount          Int      @default(0) @map("correct_count")
+  wrongCount            Int      @default(0) @map("wrong_count")
+  noAnswerCount         Int      @default(0) @map("no_answer_count")
+  averageResponseTimeMs Int?     @map("average_response_time_ms")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  room                  Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  question              Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, questionId])
+  @@map("room_question_stats")
+}
+
+model ParticipantRoomSummary {
+  id                  String      @id @default(uuid()) @db.Uuid
+  roomId              String      @map("room_id") @db.Uuid
+  participantId       String      @map("participant_id") @db.Uuid
+  score               Int
+  rank                Int
+  correctCount        Int         @map("correct_count")
+  wrongCount          Int         @map("wrong_count")
+  attemptedCount      Int         @map("attempted_count")
+  accuracyPercent     Decimal?    @map("accuracy_percent") @db.Decimal(5, 2)
+  totalResponseTimeMs Int?        @map("total_response_time_ms")
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  room                Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  participant         Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, participantId])
+  @@map("participant_room_summaries")
+}
+
+model OrganizationDailyStat {
+  id                     String       @id @default(uuid()) @db.Uuid
+  organizationId          String       @map("organization_id") @db.Uuid
+  statDate                DateTime     @map("stat_date") @db.Date
+  roomsCount              Int          @default(0) @map("rooms_count")
+  participantsCount       Int          @default(0) @map("participants_count")
+  answersCount            Int          @default(0) @map("answers_count")
+  averageAccuracyPercent  Decimal?     @map("average_accuracy_percent") @db.Decimal(5, 2)
+  aiGenerationsCount      Int          @default(0) @map("ai_generations_count")
+  createdAt               DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, statDate])
+  @@map("organization_daily_stats")
+}
