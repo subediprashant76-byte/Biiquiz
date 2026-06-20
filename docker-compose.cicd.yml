@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    env_file:
+      - /etc/biiquiz/host-api.env
+    volumes:
+      - biiquiz_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: ${IMAGE_PREFIX}-migrate:${IMAGE_TAG}
+    env_file:
+      - /etc/biiquiz/host-api.env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: ${IMAGE_PREFIX}-api:${IMAGE_TAG}
+    restart: unless-stopped
+    env_file:
+      - /etc/biiquiz/host-api.env
+    environment:
+      GUNICORN_BIND: 0.0.0.0:8000
+      HEALTHCHECK_HOST: hostapi.biiquiz.com
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8765:8000"
+
+  frontend:
+    image: ${IMAGE_PREFIX}-frontend:${IMAGE_TAG}
+    restart: unless-stopped
+    env_file:
+      - /etc/biiquiz/frontend.env
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  biiquiz_postgres_data:
+    name: hostbiiquizcom_biiquiz_postgres_data
