@@ -251,28 +251,28 @@ Important: because Gemini calls happen from the browser, user-provided keys are 
 
 ### MVP Deployment
 
-Use this simple production setup first:
+Use this production setup first:
 
-- One Next.js web service
-- Managed PostgreSQL
-- Managed Redis
-- Environment variables for secrets
-- HTTPS behind platform load balancer
-- Automated migrations during release
-- Structured logs and error monitoring
+- Next.js frontend deployed as a Node/Vercel application without Docker
+- Django/Gunicorn backend deployed from `backend/Dockerfile`
+- PostgreSQL, managed in production or provided by the local Docker Compose stack
+- Prisma schema and migrations owned by `backend/prisma/`
+- One-shot `migrations` container that completes before the Django API starts
+- HTTPS at the platform load balancer or reverse proxy
+- Environment variables for secrets, SMTP, allowed hosts, and trusted origins
 
 Suitable platforms:
 
-- Vercel plus managed Postgres/Redis, if WebSocket support is handled externally.
-- Render/Fly.io/Railway/AWS/GCP with long-running Node service for WebSockets.
-- Docker deployment on a VPS for early controlled rollout.
+- Vercel/Netlify/Render for `frontend/` plus a Docker-capable host for `backend/`.
+- Render/Fly.io/Railway/AWS/GCP for the Django backend and managed PostgreSQL.
+- `docker compose` from `backend/` for a VPS or controlled rollout.
 
 ### Scaled Deployment
 
 When traffic grows:
 
-- Run multiple web app instances.
-- Use Redis adapter for Socket.io/WebSocket pub/sub.
+- Run multiple frontend and Django API instances.
+- Add Redis-backed coordination only when realtime workers require it.
 - Keep all room state rebuildable from PostgreSQL.
 - Use connection pooling for PostgreSQL.
 - Add read replicas for analytics/admin reads if needed.

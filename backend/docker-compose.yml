@@ -1,0 +1,58 @@
+name: biiquiz-backend
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-biiquiz}
+      POSTGRES_USER: ${POSTGRES_USER:-biiquiz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-biiquiz} -d ${POSTGRES_DB:-biiquiz}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrations:
+    build:
+      context: .
+      target: migrations
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      target: runtime
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in backend/.env}
+      DJANGO_DEBUG: "false"
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
+      DJANGO_SECURE_COOKIES: ${DJANGO_SECURE_COOKIES:-true}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+      EMAIL_HOST: ${EMAIL_HOST:-localhost}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+
+volumes:
+  postgres_data:

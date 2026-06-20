@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma";
 import { db } from "@/lib/db";
 import { createRandomToken, hashToken, setParticipantCookie, type SessionUser } from "@/lib/auth";
 import { toCsv } from "@/lib/csv";

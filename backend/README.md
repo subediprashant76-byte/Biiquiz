@@ -1,6 +1,6 @@
 # biiQuiz Django API
 
-This folder contains the Django API backend for the biiQuiz frontend in `../frontend`. It mirrors the existing `/api/...` route contract and maps Django models to the PostgreSQL tables created from `../prisma/schema.prisma`.
+This folder is the complete biiQuiz backend: Django API code, the backend-owned Prisma schema/migrations in `prisma/`, and Docker deployment files.
 
 ## Setup
 
@@ -15,10 +15,10 @@ python manage.py verify_super_admin_data
 python manage.py runserver 127.0.0.1:8000
 ```
 
-The backend reads the root `.env` file. PostgreSQL must already exist and be migrated by Prisma:
+The backend reads the root `.env` for local compatibility and then overrides it with `backend/.env` when present. PostgreSQL must be migrated by the backend-owned Prisma schema:
 
 ```bash
-cd ..
+npm install
 npm run prisma:migrate
 ```
 
@@ -37,13 +37,25 @@ Then restart Next:
 npm run dev
 ```
 
-Next.js proxies `/api/*` to Django before the fallback Next API routes in `frontend/src/app/api`.
+Next.js proxies `/api/*` to Django.
 
 ## Prisma Contract
 
-Django models are unmanaged (`managed = False`) and use Prisma table names such as `users`, `quizzes`, `rooms`, and `answers`. The API runs a Prisma contract guard that reads `../prisma/schema.prisma` and verifies the required tables/enums are still present.
+Django models are unmanaged (`managed = False`) and use Prisma table names such as `users`, `quizzes`, `rooms`, and `answers`. The API runs a Prisma contract guard that reads `prisma/schema.prisma` and verifies the required tables/enums are still present.
 
 Prisma remains responsible for migrations. Django is responsible for serving API behavior.
+
+## Docker
+
+```bash
+cp .env.docker.example .env
+# Set secure passwords, domains, AUTH_SECRET, and SMTP credentials.
+docker compose up --build -d
+docker compose ps
+curl http://localhost:8000/api/health
+```
+
+Compose starts PostgreSQL, runs `prisma migrate deploy` as a one-shot service, and starts Gunicorn only after migrations succeed. The API container does not run development migrations or seed data automatically.
 
 ## Implemented API Modules
 

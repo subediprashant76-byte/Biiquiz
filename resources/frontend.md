@@ -100,7 +100,7 @@ Organization/admin: `/admin`, `/admin/users`, `/admin/users/invite`, `/admin/use
 | `/admin/knowledge-gaps` | Knowledge gap reports | Admin only | `/api/admin/knowledge-gaps` | Answer-derived gap data |
 
 ## API Integration
-Frontend calls use relative `/api/*` URLs from `frontend/`. Default behavior uses fallback Next.js API routes. To use the Django backend, set `USE_DJANGO_API="true"` and `DJANGO_API_URL="http://127.0.0.1:8000"` in the root `.env`; `frontend/next.config.mjs` loads that root `.env` and proxies the same `/api/*` calls to Django.
+Frontend calls use relative `/api/*` URLs. Set `USE_DJANGO_API="true"` and `DJANGO_API_URL` to the Django service URL; `frontend/next.config.mjs` proxies the requests without exposing the backend URL to browser components. Production frontend builds require `DJANGO_API_URL`.
 
 | Endpoint | Method | Purpose | Request | Response |
 |---|---|---|---|---|

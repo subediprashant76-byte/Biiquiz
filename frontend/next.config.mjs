@@ -28,7 +28,11 @@ const nextConfig = {
   },
   async rewrites() {
     if ((process.env.USE_DJANGO_API ?? "true") !== "true") return [];
-    const djangoApiUrl = process.env.DJANGO_API_URL ?? "http://127.0.0.1:8000";
+    const configuredUrl = process.env.DJANGO_API_URL;
+    if (!configuredUrl && process.env.NODE_ENV === "production") {
+      throw new Error("DJANGO_API_URL is required for a production frontend build.");
+    }
+    const djangoApiUrl = (configuredUrl ?? "http://127.0.0.1:8000").replace(/\/$/, "");
     return {
       beforeFiles: [
         {

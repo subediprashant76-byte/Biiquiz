@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.db import connection
 from django.db.models import Count
 from django.http import HttpRequest
 from django.views.decorators.csrf import csrf_exempt
@@ -38,6 +39,18 @@ def handle(fn):
         return fail(str(exc))
     except Exception as exc:
         return fail(str(exc), code="INTERNAL_ERROR", status=500)
+
+
+def health(request: HttpRequest):
+    if request.method != "GET":
+        return fail("Method not allowed.", status=405)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except Exception:
+        return fail("Database unavailable.", code="SERVICE_UNAVAILABLE", status=503)
+    return ok({"status": "healthy"})
 
 
 @csrf_exempt

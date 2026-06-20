@@ -10,10 +10,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 ROOT_DIR = BASE_DIR.parent
 
 load_dotenv(ROOT_DIR / ".env")
+load_dotenv(BASE_DIR / ".env", override=True)
 
 SECRET_KEY = os.getenv("AUTH_SECRET", "replace-with-a-long-random-secret")
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host.strip()]
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()]
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
@@ -46,20 +48,28 @@ def database_from_url(url: str) -> dict[str, str | int]:
     }
 
 
-DATABASES = {"default": database_from_url(DATABASE_URL)}
+DATABASES = {"default": {**database_from_url(DATABASE_URL), "CONN_MAX_AGE": int(os.getenv("DATABASE_CONN_MAX_AGE", "60")), "CONN_HEALTH_CHECKS": True}}
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SESSION_COOKIE_NAME = "biiquiz_session"
 PARTICIPANT_COOKIE_PREFIX = "biiquiz_participant"
 SESSION_DAYS = 14
 PARTICIPANT_HOURS = 12
-PRISMA_SCHEMA_PATH = ROOT_DIR / "prisma" / "schema.prisma"
+PRISMA_SCHEMA_PATH = BASE_DIR / "prisma" / "schema.prisma"
+
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = os.getenv("DJANGO_SECURE_COOKIES", str(not DEBUG)).lower() == "true"
+CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")

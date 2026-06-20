@@ -1,4 +1,4 @@
-import type { CorrectOption, ScoringMode } from "@prisma/client";
+import type { CorrectOption, ScoringMode } from "@/generated/prisma";
 
 export type ScoreInput = {
   selectedOption: CorrectOption;
@@ -27,4 +27,3 @@ export function calculateScore(input: ScoreInput) {
 function responseTimeMs(input: Pick<ScoreInput, "startedAt" | "answeredAt">) {
   return Math.max(0, input.answeredAt.getTime() - input.startedAt.getTime());
 }
-

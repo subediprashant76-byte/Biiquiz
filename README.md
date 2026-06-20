@@ -1,20 +1,16 @@
 # biiQuiz Host
 
-biiQuiz Host is a live quiz hosting platform for educators and institutions. It uses a Next.js frontend, Django/Next API backends, PostgreSQL, Prisma, optional Redis caching, and BYOK Gemini AI question generation.
+biiQuiz Host is a live quiz hosting platform for educators and institutions. It uses a Next.js frontend, a Django API backend, PostgreSQL, Prisma-managed backend migrations, and BYOK Gemini AI question generation.
 
 ## Project Structure
 
 ```txt
-frontend/   Next.js UI and fallback Next API routes
-backend/    Django API service
-prisma/     Shared Prisma schema and migrations source
+frontend/   Next.js UI, deployable without Docker
+backend/    Django API, backend-owned Prisma schema, migrations, and Docker deployment
 resources/  Architecture and implementation docs
 ```
 
-The frontend can use two backend options:
-
-- Django API service in `backend/`, mapped to the same Prisma/PostgreSQL tables.
-- Fallback Next.js API routes in `frontend/src/app/api`.
+Prisma lives at `backend/prisma/` because it defines and migrates the backend database. Django maps those tables with unmanaged models. The Next.js frontend reaches Django through its `/api/*` rewrite and does not own database migrations.
 
 ## Prerequisites
 
@@ -96,9 +92,9 @@ Open the app:
 
 [http://localhost:3000](http://localhost:3000)
 
-## Optional Django Backend
+## Django Backend
 
-Use this when you want the frontend `/api/*` calls to be served by Python Django instead of the fallback Next.js API routes. This is the recommended integrated mode for the current project structure.
+The frontend `/api/*` calls are served by the Django backend.
 
 Install and check the Django backend:
 
@@ -125,7 +121,7 @@ Then restart the Next.js frontend:
 npm run dev
 ```
 
-The Next.js app will proxy `/api/*` to Django before local Next API routes. Prisma still owns migrations and the database schema; Django models are unmanaged and validate against `prisma/schema.prisma`.
+The Next.js app proxies `/api/*` to Django. Prisma owns backend migrations at `backend/prisma/`; Django models are unmanaged and validate against `backend/prisma/schema.prisma`.
 
 For daily development with Django integration, run two terminals:
 
@@ -298,7 +294,7 @@ npm run start
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Start the Next.js development server. |
-| `npm run build` | Generate Prisma Client and build the app. |
+| `npm run build` | Build the Next.js frontend. |
 | `npm run start` | Start the production server after `npm run build`. |
 | `npm run lint` | Run Next.js linting. |
 | `npm run typecheck` | Run TypeScript without emitting files. |
@@ -325,6 +321,34 @@ Run from `backend/` after activating the virtual environment:
 
 Seeded organizations are stored as sample tenants. Super Admin lists hide them by default; enable **Include samples** in a filter bar when testing seeded users and data. Production startup never runs the seed command automatically.
 | `python manage.py runserver 127.0.0.1:8000` | Start the Django API server. |
+
+## Backend Docker Deployment
+
+The backend image contains Django/Gunicorn. A separate one-shot Docker target applies Prisma migrations before the API starts.
+
+```bash
+cd backend
+cp .env.docker.example .env
+# Replace every placeholder secret/domain in .env.
+docker compose up --build -d
+docker compose ps
+curl http://localhost:8000/api/health
+```
+
+For production, terminate TLS at your reverse proxy, keep PostgreSQL private, and set `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `APP_BASE_URL`, and SMTP values to real domains.
+
+## Frontend Hosting
+
+The frontend does not require Docker. Deploy `frontend/` with Node.js (Vercel, Render, Netlify, or a Node host) and set:
+
+```txt
+USE_DJANGO_API=true
+DJANGO_API_URL=https://api.example.com
+NEXT_PUBLIC_APP_URL=https://app.example.com
+NEXT_PUBLIC_GEMINI_MODEL=gemini-2.5-flash
+```
+
+Then run `npm install`, `npm run build`, and `npm run start` from `frontend/`.
 
 ## BYOK Gemini AI
 

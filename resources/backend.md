@@ -1,21 +1,17 @@
 # Backend Implementation
 
 ## Backend Stack
-The project now supports two backend runtimes:
-
 - Python backend: Django API service in `backend/`, enabled from the frontend with `USE_DJANGO_API="true"`.
 - Super Admin business data uses normalized PostgreSQL tables for plans, subscriptions, upgrades, payments, domains, support, platform settings, and AI settings. Prisma owns migrations; Django maps these tables as unmanaged models.
-- Fallback backend: existing Next.js App Router API routes in `frontend/src/app/api`.
-
-Both runtimes use the same PostgreSQL database. Prisma remains the migration and schema authority. The Django models are unmanaged and mapped to Prisma table names, while the Django API includes a Prisma contract guard that reads `prisma/schema.prisma` and verifies required tables/enums. The Next app now lives in `frontend/` and proxies `/api/*` to Django in integrated mode.
+Prisma remains the backend migration and schema authority at `backend/prisma/schema.prisma`. Django models are unmanaged and mapped to those table names. The Next app lives in `frontend/` and proxies `/api/*` to Django.
 
 Stack:
-- Next.js App Router API routes
+- Next.js App Router frontend
 - Django 5 API service
 - PostgreSQL
 - Prisma ORM for migrations/schema contract
 - Django unmanaged ORM models for Python API access
-- Zod validation on the Next API side
+- Zod validation for frontend payloads and response contracts
 - Python validation matching Prisma/Zod constraints on the Django side
 - Optional Redis helper for cache/realtime-style production concerns
 - AI generation where Gemini API keys are entered and used in the frontend, not stored by either backend
@@ -123,7 +119,7 @@ Host backend flow:
 
 Organization backend flow:
 - Uses `/api/admin/overview`, `/api/admin/users`, `/api/admin/host-passes`, `/api/admin/ai-usage`, `/api/admin/analytics`, reports, settings, workspace, proctoring, and knowledge gap endpoints.
-- Requires `requireAdmin` in both the Next fallback API and Django API.
+- Requires the Django organization-admin or Super Admin permission guard, depending on the route family.
 - Reads organization-wide data from PostgreSQL through Prisma on the Next side and unmanaged Django models on the Python side.
 - Does not store frontend BYOK Gemini keys.
 
@@ -147,7 +143,7 @@ Organization UI data mapping:
 Hosts and admins authenticate through the existing auth API. New registered users are hosts by default. Admin/super users can be created by promoting a user in PostgreSQL or by running the documented seed script. Participants do not need accounts and join a room by code/name.
 
 ## Frontend Integration
-Implemented frontend screens use relative `/api/*` calls from `frontend/`. By default those calls are served by fallback Next.js routes. When `USE_DJANGO_API="true"`, `frontend/next.config.mjs` loads the root `.env` and proxies `/api/*` to `DJANGO_API_URL` before local Next API routes.
+Implemented frontend screens use relative `/api/*` calls from `frontend/`. The supported deployment sets `USE_DJANGO_API="true"`; `frontend/next.config.mjs` proxies those requests to `DJANGO_API_URL`. Production builds require `DJANGO_API_URL`.
 
 API-connected flows supported by Django:
 - Auth register/login/logout/me
