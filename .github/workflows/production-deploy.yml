@@ -96,23 +96,51 @@ jobs:
 
       - name: Prepare SSH
         shell: bash
+        env:
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/production_key
-          chmod 600 ~/.ssh/production_key
-          ssh-keyscan -H "${{ secrets.PROD_HOST }}" >> ~/.ssh/known_hosts
+          set -euo pipefail
+
+          if [ -z "$SERVER_SSH_KEY" ]; then
+            echo "SERVER_SSH_KEY secret is empty or missing."
+            exit 1
+          fi
+
+          if [ -z "$SERVER_HOST" ]; then
+            echo "SERVER_HOST secret is empty or missing."
+            exit 1
+          fi
+
+          if [ -z "$SERVER_PORT" ]; then
+            echo "SERVER_PORT secret is empty or missing."
+            exit 1
+          fi
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          printf '%s\n' "$SERVER_SSH_KEY" > "$HOME/.ssh/production_key"
+          chmod 600 "$HOME/.ssh/production_key"
+
+          ssh-keygen -y -f "$HOME/.ssh/production_key" > /dev/null
+
+          ssh-keyscan -p "$SERVER_PORT" -H "$SERVER_HOST" >> "$HOME/.ssh/known_hosts"
+          chmod 644 "$HOME/.ssh/known_hosts"
 
       - name: Copy Compose file to server
         shell: bash
         run: |
-          scp -i ~/.ssh/production_key \
+          scp -P "${{ secrets.SERVER_PORT }}" \
+            -i "$HOME/.ssh/production_key" \
             docker-compose.cicd.yml \
-            "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}:${APP_DIR}/docker-compose.cicd.yml"
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${APP_DIR}/docker-compose.cicd.yml"
 
       - name: Deploy on production server
         shell: bash
         run: |
-          ssh -i ~/.ssh/production_key "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}" \
+          ssh -p "${{ secrets.SERVER_PORT }}" -i "$HOME/.ssh/production_key" "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
             "IMAGE_PREFIX='${IMAGE_PREFIX}' IMAGE_TAG='${IMAGE_TAG}' COMPOSE_PROJECT_NAME='${COMPOSE_PROJECT_NAME}' APP_DIR='${APP_DIR}' GHCR_USERNAME='${{ secrets.GHCR_USERNAME }}' GHCR_READ_TOKEN='${{ secrets.GHCR_READ_TOKEN }}' bash -s" <<'REMOTE_SCRIPT'
           set -euo pipefail
 
