@@ -2,49 +2,60 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, unquote, urlparse
+
+from django.core.exceptions import ImproperlyConfigured
 
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 ROOT_DIR = BASE_DIR.parent
 
+local_env_path = Path(os.getenv("DJANGO_ENV_FILE", BASE_DIR / ".env.local"))
+if local_env_path.exists():
+    load_dotenv(local_env_path)
 load_dotenv(ROOT_DIR / ".env")
-load_dotenv(BASE_DIR / ".env", override=True)
 
 SECRET_KEY = os.getenv("AUTH_SECRET", "replace-with-a-long-random-secret")
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host.strip()]
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()]
+if not DEBUG and SECRET_KEY == "replace-with-a-long-random-secret":
+    raise ImproperlyConfigured("AUTH_SECRET must be configured when DJANGO_DEBUG=false.")
 
-INSTALLED_APPS = [
-    "django.contrib.contenttypes",
-    "django.contrib.staticfiles",
-    "api",
-]
+INSTALLED_APPS = ["django.contrib.staticfiles", "api"]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = "biiquiz_api.urls"
 WSGI_APPLICATION = "biiquiz_api.wsgi.application"
 ASGI_APPLICATION = "biiquiz_api.asgi.application"
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/biiquiz")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    if not DEBUG:
+        raise ImproperlyConfigured("DATABASE_URL must be configured when DJANGO_DEBUG=false.")
+    DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:5432/biiquiz"
 
 
-def database_from_url(url: str) -> dict[str, str | int]:
+def database_from_url(url: str) -> dict[str, object]:
     parsed = urlparse(url)
+    if parsed.scheme not in {"postgres", "postgresql"}:
+        raise ImproperlyConfigured("DATABASE_URL must use postgres:// or postgresql://.")
+    options = dict(parse_qsl(parsed.query))
     return {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": parsed.path.lstrip("/") or "biiquiz",
-        "USER": parsed.username or "postgres",
-        "PASSWORD": parsed.password or "",
-        "HOST": parsed.hostname or "localhost",
+        "USER": unquote(parsed.username or "postgres"),
+        "PASSWORD": unquote(parsed.password or ""),
+        "HOST": parsed.hostname or "127.0.0.1",
         "PORT": parsed.port or 5432,
+        "OPTIONS": options,
     }
 
 
@@ -70,6 +81,13 @@ SESSION_COOKIE_SECURE = os.getenv("DJANGO_SECURE_COOKIES", str(not DEBUG)).lower
 CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
+SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", str(not DEBUG)).lower() == "true"
+SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000" if not DEBUG else "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv("DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS", "false").lower() == "true"
+SECURE_HSTS_PRELOAD = os.getenv("DJANGO_SECURE_HSTS_PRELOAD", "false").lower() == "true"
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")

@@ -2,12 +2,18 @@ const { existsSync, readFileSync } = require("node:fs");
 const { spawnSync } = require("node:child_process");
 const { resolve } = require("node:path");
 
-for (const path of [resolve(__dirname, "../../.env"), resolve(__dirname, "../.env")]) {
+const configuredEnv = process.env.BACKEND_ENV_FILE ? resolve(process.env.BACKEND_ENV_FILE) : resolve(__dirname, "../.env.local");
+const inheritedKeys = new Set(Object.keys(process.env));
+const fileEnvironment = {};
+for (const path of [resolve(__dirname, "../../.env"), configuredEnv]) {
   if (!existsSync(path)) continue;
   for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
     const match = line.match(/^([A-Z0-9_]+)=["']?(.*?)["']?$/);
-    if (match) process.env[match[1]] = match[2];
+    if (match) fileEnvironment[match[1]] = match[2];
   }
+}
+for (const [key, value] of Object.entries(fileEnvironment)) {
+  if (!inheritedKeys.has(key)) process.env[key] = value;
 }
 
 const [command, ...args] = process.argv.slice(2);

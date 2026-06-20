@@ -43,9 +43,11 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 NEXT_PUBLIC_GEMINI_MODEL="gemini-2.5-flash"
 LOG_LEVEL="info"
 USE_DJANGO_API="true"
-DJANGO_API_URL="http://127.0.0.1:8000"
+DJANGO_API_URL="http://127.0.0.1:8765"
 DJANGO_DEBUG="true"
 DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"
+DJANGO_SECURE_SSL_REDIRECT="false"
+DJANGO_SECURE_HSTS_SECONDS="0"
 APP_BASE_URL="http://localhost:3000"
 EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST="smtp.gmail.com"
@@ -105,14 +107,14 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py check
 python manage.py seed_test_users
-python manage.py runserver 127.0.0.1:8000
+python manage.py runserver 127.0.0.1:8765
 ```
 
 In the root `.env`, enable the Django proxy:
 
 ```txt
 USE_DJANGO_API="true"
-DJANGO_API_URL="http://127.0.0.1:8000"
+DJANGO_API_URL="http://127.0.0.1:8765"
 ```
 
 Then restart the Next.js frontend:
@@ -307,7 +309,7 @@ npm run start
 | `npm run backend:check` | Validate the Django backend from the root wrapper. |
 | `npm run backend:seed` | Seed Django test users from the root wrapper. |
 | `npm run backend:verify-super-admin` | Verify all Super Admin database payloads and normalized relationships. |
-| `npm run backend:dev` | Run the Django API server on port 8000. |
+| `npm run backend:dev` | Run the Django API server on private port 8765. |
 
 ## Django Scripts
 
@@ -320,7 +322,8 @@ Run from `backend/` after activating the virtual environment:
 | `python manage.py verify_super_admin_data` | Smoke-test every Super Admin module against PostgreSQL. |
 
 Seeded organizations are stored as sample tenants. Super Admin lists hide them by default; enable **Include samples** in a filter bar when testing seeded users and data. Production startup never runs the seed command automatically.
-| `python manage.py runserver 127.0.0.1:8000` | Start the Django API server. |
+
+| `python manage.py runserver 127.0.0.1:8765` | Start the Django API server. |
 
 ## Backend Docker Deployment
 
@@ -332,10 +335,10 @@ cp .env.docker.example .env
 # Replace every placeholder secret/domain in .env.
 docker compose up --build -d
 docker compose ps
-curl http://localhost:8000/api/health
+curl http://127.0.0.1:8765/api/health
 ```
 
-For production, terminate TLS at your reverse proxy, keep PostgreSQL private, and set `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `APP_BASE_URL`, and SMTP values to real domains.
+For production, terminate TLS at your reverse proxy, keep PostgreSQL private, and set `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `APP_BASE_URL`, and SMTP values to real domains. See [deployment.md](deployment.md) for the Gunicorn, systemd, Nginx, TLS, backup, and maintenance runbook for `host.biiquiz.com` and `hostapi.biiquiz.com`.
 
 ## Frontend Hosting
 
@@ -343,8 +346,8 @@ The frontend does not require Docker. Deploy `frontend/` with Node.js (Vercel, R
 
 ```txt
 USE_DJANGO_API=true
-DJANGO_API_URL=https://api.example.com
-NEXT_PUBLIC_APP_URL=https://app.example.com
+DJANGO_API_URL=https://hostapi.biiquiz.com
+NEXT_PUBLIC_APP_URL=https://host.biiquiz.com
 NEXT_PUBLIC_GEMINI_MODEL=gemini-2.5-flash
 ```
 

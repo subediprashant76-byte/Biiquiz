@@ -1,5 +1,24 @@
+import os
+
 from django.conf import settings
-from django.core.checks import Warning, register
+from django.core.checks import Error, Warning, register
+
+
+@register()
+def database_host_check(app_configs, **kwargs):
+    host = str(settings.DATABASES["default"].get("HOST", "")).lower()
+    if host == "db" and os.getenv("DJANGO_RUNTIME", "host").lower() != "docker":
+        return [
+            Error(
+                "DATABASE_URL uses the Docker-only hostname 'db' outside Docker.",
+                hint=(
+                    "Use 127.0.0.1 or a resolvable PostgreSQL hostname in root .env, "
+                    "backend/.env.local, or DJANGO_ENV_FILE."
+                ),
+                id="api.E001",
+            )
+        ]
+    return []
 
 
 @register()

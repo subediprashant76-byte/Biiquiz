@@ -36,10 +36,14 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
       AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in backend/.env}
+      DJANGO_RUNTIME: docker
       DJANGO_DEBUG: "false"
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
       DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
       DJANGO_SECURE_COOKIES: ${DJANGO_SECURE_COOKIES:-true}
+      DJANGO_SECURE_SSL_REDIRECT: ${DJANGO_SECURE_SSL_REDIRECT:-true}
+      DJANGO_SECURE_HSTS_SECONDS: ${DJANGO_SECURE_HSTS_SECONDS:-31536000}
+      HEALTHCHECK_HOST: ${HEALTHCHECK_HOST:-hostapi.biiquiz.com}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
       EMAIL_HOST: ${EMAIL_HOST:-localhost}
@@ -52,7 +56,7 @@ services:
       migrations:
         condition: service_completed_successfully
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8765}:8000"
 
 volumes:
   postgres_data:

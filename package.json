@@ -17,7 +17,7 @@
     "backend:check": "backend/scripts/python.sh backend/manage.py check",
     "backend:seed": "backend/scripts/python.sh backend/manage.py seed_test_users",
     "backend:verify-super-admin": "backend/scripts/python.sh backend/manage.py verify_super_admin_data",
-    "backend:dev": "backend/scripts/python.sh backend/manage.py runserver 127.0.0.1:8000"
+    "backend:dev": "backend/scripts/python.sh backend/manage.py runserver 127.0.0.1:8765"
   },
   "workspaces": [
     "frontend",

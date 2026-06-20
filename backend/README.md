@@ -12,10 +12,16 @@ pip install -r requirements.txt
 python manage.py check
 python manage.py seed_test_users
 python manage.py verify_super_admin_data
-python manage.py runserver 127.0.0.1:8000
+python manage.py runserver 127.0.0.1:8765
 ```
 
-The backend reads the root `.env` for local compatibility and then overrides it with `backend/.env` when present. PostgreSQL must be migrated by the backend-owned Prisma schema:
+Host commands read the root `.env` and then optional `backend/.env.local`. Create a host-only override when needed:
+
+```bash
+cp .env.local.example .env.local
+```
+
+`backend/.env` is reserved for Docker Compose and may use the container-only hostname `db`; host commands intentionally do not load it. PostgreSQL must be migrated by the backend-owned Prisma schema:
 
 ```bash
 npm install
@@ -28,7 +34,7 @@ In the root `.env`, set:
 
 ```txt
 USE_DJANGO_API="true"
-DJANGO_API_URL="http://127.0.0.1:8000"
+DJANGO_API_URL="http://127.0.0.1:8765"
 ```
 
 Then restart Next:
@@ -52,10 +58,12 @@ cp .env.docker.example .env
 # Set secure passwords, domains, AUTH_SECRET, and SMTP credentials.
 docker compose up --build -d
 docker compose ps
-curl http://localhost:8000/api/health
+curl http://127.0.0.1:8765/api/health
 ```
 
 Compose starts PostgreSQL, runs `prisma migrate deploy` as a one-shot service, and starts Gunicorn only after migrations succeed. The API container does not run development migrations or seed data automatically.
+
+For bare-metal production with Gunicorn, systemd, and Nginx, use the templates in `deploy/` and the root [deployment guide](../deployment.md). The production API is `https://hostapi.biiquiz.com`, proxied to the private loopback port `127.0.0.1:8765`.
 
 ## Implemented API Modules
 
