@@ -14,7 +14,7 @@ export default function LandingPage() {
               biiQuiz Live
             </p>
             <h1 className="max-w-4xl text-5xl font-black leading-tight text-ink md:text-7xl">
-              Host Live Quizzes for Focused Classrooms
+              Host Live Quizzes for Focused Rooms
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
               Create timed quiz rooms, generate questions with your own Gemini
