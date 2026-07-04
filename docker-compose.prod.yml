@@ -1,59 +1,49 @@
+name: host-biiquiz
+
 services:
-  db:
-    image: postgres:16
-    restart: unless-stopped
-    env_file:
-      - /etc/biiquiz/host-api.env
-    volumes:
-      - biiquiz_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  migrate:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: migrations
-    env_file:
-      - /etc/biiquiz/host-api.env
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: "no"
-
-  api:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: runtime
-    restart: unless-stopped
-    env_file:
-      - /etc/biiquiz/host-api.env
-    environment:
-      GUNICORN_BIND: 0.0.0.0:8000
-      HEALTHCHECK_HOST: hostapi.biiquiz.com
-    depends_on:
-      db:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-    ports:
-      - "127.0.0.1:8765:8000"
-
   frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
+    image: ghcr.io/${GHCR_OWNER:-basan-ta}/host-biiquiz-frontend:${IMAGE_TAG:-latest}
+    container_name: host-biiquiz-frontend
     restart: unless-stopped
-    env_file:
-      - /etc/biiquiz/frontend.env
-    depends_on:
-      - api
     ports:
       - "127.0.0.1:3000:3000"
+    env_file:
+      - ./frontend/.env.production
+    environment:
+      NEXT_PUBLIC_API_URL: /api
+      USE_DJANGO_API: "true"
+      DJANGO_API_URL: http://backend:8000
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - backend
+      - redis
+    networks:
+      - app_net
 
-volumes:
-  biiquiz_postgres_data:
+  backend:
+    image: ghcr.io/${GHCR_OWNER:-basan-ta}/host-biiquiz-backend:${IMAGE_TAG:-latest}
+    container_name: host-biiquiz-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8765:8000"
+    env_file:
+      - ./backend/.env.production
+    environment:
+      GUNICORN_BIND: 0.0.0.0:8000
+      HEALTHCHECK_HOST: host.biiquiz.com
+      DJANGO_RUNTIME: docker
+    networks:
+      - app_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: host-biiquiz-redis
+    restart: unless-stopped
+    expose:
+      - "6379"
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    driver: bridge

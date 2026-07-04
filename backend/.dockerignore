@@ -1,5 +1,7 @@
 .env
 .env.*
+!.env.example
+!.env.*.example
 env
 .venv
 __pycache__
@@ -7,4 +9,6 @@ __pycache__
 *.log
 node_modules
 staticfiles
+.pytest_cache
+.ruff_cache
 .DS_Store
