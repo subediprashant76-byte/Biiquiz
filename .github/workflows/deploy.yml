@@ -26,9 +26,6 @@ jobs:
   lint-frontend:
     name: Lint Frontend
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,18 +41,16 @@ jobs:
         run: npm ci --include=optional
 
       - name: Prepare Prisma client
-        run: |
-          rm -rf "$HOME/.cache/prisma"
-          npm run prisma:generate
+        run: npm run prisma:generate
         env:
           DATABASE_URL: postgresql://ci_user:ci_password@localhost:5432/ci_db
           DIRECT_URL: postgresql://ci_user:ci_password@localhost:5432/ci_db
 
       - name: Run frontend lint
-        run: npm run lint --if-present
+        run: npm --prefix frontend run lint --if-present
 
       - name: Run frontend build
-        run: npm run build
+        run: npm --prefix frontend run build
         env:
           NEXT_PUBLIC_API_URL: /api
           USE_DJANGO_API: "true"
