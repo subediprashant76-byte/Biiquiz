@@ -135,7 +135,7 @@ npm run dev
 Health checks:
 
 ```bash
-curl -I http://127.0.0.1:8765/api/health/
+curl -I http://127.0.0.1:8765/api/health
 curl -I http://127.0.0.1:3000
 ```
 
@@ -198,7 +198,7 @@ sudo nginx -t
 sudo systemctl status nginx --no-pager
 sudo journalctl -u nginx -n 100 --no-pager
 curl -I https://host.biiquiz.com
-curl -I https://host.biiquiz.com/api/health/
+curl -I https://host.biiquiz.com/api/health
 curl -fsS http://127.0.0.1:3000 >/dev/null
 curl -fsS http://127.0.0.1:8765/api/health/ || curl -fsS http://127.0.0.1:8765/api/health
 ```
@@ -223,4 +223,4 @@ curl -fsS http://127.0.0.1:8765/api/health/ || curl -fsS http://127.0.0.1:8765/a
 
 Shared Nginx source of truth is the server site config copied from the workspace root `nginx.conf`. The `host.biiquiz.com` block must proxy `/` to `127.0.0.1:3000` and `/api/`, `/admin/`, `/static/`, `/media/` to `127.0.0.1:8765`.
 
-`/api/health/` returns 404 but `/api/health` works: update the Nginx health check or backend URL style so both sides agree on trailing slash behavior.
+`/api/health/` returns 404 but `/api/health` works: Host BiiQuiz currently defines `path("health", views.health)`, so `/api/health` is the canonical endpoint. The deploy script accepts both forms.
