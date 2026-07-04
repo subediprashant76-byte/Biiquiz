@@ -45,6 +45,30 @@ wait_for_url() {
   return 1
 }
 
+wait_for_any_url() {
+  local label="$1"
+  local attempts="$2"
+  local delay="$3"
+  shift 3
+  local urls=("$@")
+
+  echo "Waiting for ${label}: ${urls[*]}"
+  for attempt in $(seq 1 "$attempts"); do
+    for url in "${urls[@]}"; do
+      if curl -fsS "$url" >/dev/null; then
+        echo "${label} is healthy at ${url}"
+        return 0
+      fi
+    done
+
+    echo "${label} is not ready yet (${attempt}/${attempts})"
+    sleep "$delay"
+  done
+
+  echo "${label} did not become healthy"
+  return 1
+}
+
 warn_if_public_unreachable() {
   local url="$1"
   local label="$2"
@@ -150,7 +174,9 @@ echo "Checking local frontend..."
 wait_for_url "http://127.0.0.1:${FRONTEND_PORT}" "frontend"
 
 echo "Checking local backend health..."
-wait_for_url "http://127.0.0.1:${BACKEND_PORT}/api/health/" "backend API health"
+wait_for_any_url "backend API health" 30 2 \
+  "http://127.0.0.1:${BACKEND_PORT}/api/health/" \
+  "http://127.0.0.1:${BACKEND_PORT}/api/health"
 
 if $DOCKER compose -f "$COMPOSE_FILE" config --services | grep -qx redis; then
   echo "Checking Redis..."
@@ -162,6 +188,7 @@ fi
 echo "Checking public site..."
 warn_if_public_unreachable "$PUBLIC_URL" "public site"
 warn_if_public_unreachable "$PUBLIC_URL/api/health/" "public API health"
+warn_if_public_unreachable "$PUBLIC_URL/api/health" "public API health without trailing slash"
 
 echo "Testing Nginx..."
 sudo nginx -t
