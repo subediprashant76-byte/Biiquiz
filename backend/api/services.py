@@ -26,7 +26,6 @@ from api.models import (
     AuditLog,
     HostPass,
     Organization,
-    OrganizationDailyStat,
     OrganizationInvite,
     PasswordResetOtp,
     Participant,
@@ -37,7 +36,7 @@ from api.models import (
     RoomQuestionStat,
     User,
 )
-from api.serializers import ai_generation_json, participant_json, question_json, quiz_json, room_json, user_json
+from api.serializers import ai_generation_json, question_json, quiz_json, room_json, user_json
 from api.validation import validate_generated_quiz_json
 from api import super_admin_services
 
@@ -1209,7 +1208,6 @@ def _super_admin_rooms(search: str = "") -> dict[str, Any]:
 
 def _super_admin_analytics() -> dict[str, Any]:
     orgs = Organization.objects.exclude(slug="platform").count()
-    rooms = Room.objects.count()
     answers = Answer.objects.count()
     participants = Participant.objects.count()
     return {

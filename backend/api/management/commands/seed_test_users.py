@@ -10,7 +10,6 @@ from django.utils import timezone
 from api.auth import hash_password, hash_token
 from api.models import (
     AiGeneration,
-    AiQuestionDraft,
     AiUsageLog,
     Answer,
     AuditLog,

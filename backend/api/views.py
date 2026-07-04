@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from django.db import connection
-from django.db.models import Count
 from django.http import HttpRequest
 from django.views.decorators.csrf import csrf_exempt
 
@@ -14,7 +13,6 @@ from api.serializers import ai_generation_json, answer_json, draft_json, partici
 from api.validation import (
     CORRECT_OPTIONS,
     ValidationError,
-    as_int,
     as_str,
     as_uuid,
     parse_json,
