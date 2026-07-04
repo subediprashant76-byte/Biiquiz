@@ -110,11 +110,19 @@ check_required_file "$BACKEND_ENV_FILE"
 check_required_file "$FRONTEND_ENV_FILE"
 check_database_url "$BACKEND_ENV_FILE"
 
-if [ -d .git ]; then
-  echo "Pulling latest deployment files..."
-  git pull --ff-only
+if [ "${DEPLOY_GIT_PULL:-false}" = "true" ]; then
+  if [ -d .git ]; then
+    echo "Pulling latest deployment files..."
+    if ! git pull --ff-only; then
+      echo "Git pull failed. The server does not need Git credentials when GitHub Actions uploads deployment files."
+      exit 1
+    fi
+  else
+    echo "DEPLOY_GIT_PULL=true was requested, but $APP_DIR is not a git repository."
+    exit 1
+  fi
 else
-  echo "Skipping git pull because $APP_DIR is not a git repository."
+  echo "Skipping git pull. GitHub Actions uploads deploy.sh and docker-compose.prod.yml before deployment."
 fi
 
 echo "Checking frontend port ${FRONTEND_PORT} before refresh..."
