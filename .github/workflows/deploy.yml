@@ -20,17 +20,17 @@ jobs:
     steps:
       - name: Trigger Dokploy compose deploy
         env:
-          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_URL: ${{ secrets.DOKPLOY_API_URL }}
           DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
-          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          DOKPLOY_API_TOKEN: ${{ secrets.DOKPLOY_API_TOKEN }}
         run: |
-          if [ -z "$DOKPLOY_URL" ] || [ -z "$DOKPLOY_COMPOSE_ID" ] || [ -z "$DOKPLOY_API_KEY" ]; then
-            echo "Missing one or more required secrets: DOKPLOY_URL, DOKPLOY_COMPOSE_ID, DOKPLOY_API_KEY"
+          if [ -z "$DOKPLOY_API_URL" ] || [ -z "$DOKPLOY_COMPOSE_ID" ] || [ -z "$DOKPLOY_API_TOKEN" ]; then
+            echo "Missing one or more required secrets: DOKPLOY_API_URL, DOKPLOY_COMPOSE_ID, DOKPLOY_API_TOKEN"
             exit 1
           fi
 
-          curl -fsS -X POST "${DOKPLOY_URL%/}/api/compose.deploy" \
+          curl -fsS -X POST "${DOKPLOY_API_URL%/}/api/compose.deploy" \
             -H "accept: application/json" \
-            -H "x-api-key: ${DOKPLOY_API_KEY}" \
+            -H "x-api-key: ${DOKPLOY_API_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "{\"composeId\": \"${DOKPLOY_COMPOSE_ID}\"}"
