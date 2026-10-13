@@ -1,0 +1,63 @@
+# DISABLED — host.biiquiz.com is now routed by Dokploy (Traefik), not host Nginx.
+#
+# Dokploy app: the "frontend" service from docker-compose.prod.yml, container port 3000.
+# The frontend's own Next.js rewrite (frontend/next.config.mjs) already forwards /api/*
+# to the backend container over the internal Docker network, so Dokploy's domain only
+# needs to point at the frontend service — no separate /api/ rule is required.
+#
+# Matching action required on the server (not done by this repo change):
+#   1. Confirm Dokploy's domain for host.biiquiz.com is verified and its TLS cert is issued.
+#   2. sudo rm /etc/nginx/sites-enabled/host.biiquiz.com   (remove the symlink only)
+#   3. sudo nginx -t && sudo systemctl reload nginx
+#   Keep /etc/nginx/sites-available/host.biiquiz.com as a backup for rollback.
+#   Do not touch any other sites-enabled/sites-available file (e.g. hostapi.biiquiz.com).
+#
+# Original config kept below for reference/rollback:
+#
+# server {
+#     listen 80;
+#     server_name host.biiquiz.com;
+#
+#     return 301 https://$host$request_uri;
+# }
+#
+# server {
+#     listen 443 ssl http2;
+#     server_name host.biiquiz.com;
+#
+#     ssl_certificate /etc/letsencrypt/live/host.biiquiz.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/host.biiquiz.com/privkey.pem;
+#
+#     access_log /var/log/nginx/host.biiquiz.com.access.log;
+#     error_log /var/log/nginx/host.biiquiz.com.error.log;
+#
+#     client_max_body_size 25m;
+#
+#     location ^~ /api/ {
+#         proxy_pass http://127.0.0.1:8765;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto https;
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection "upgrade";
+#         proxy_read_timeout 120s;
+#         proxy_connect_timeout 30s;
+#         proxy_send_timeout 120s;
+#     }
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:3000;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto https;
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection "upgrade";
+#         proxy_read_timeout 120s;
+#         proxy_connect_timeout 30s;
+#         proxy_send_timeout 120s;
+#     }
+# }
