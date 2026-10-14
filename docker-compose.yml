@@ -1,6 +1,37 @@
 name: host-biiquiz
 
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-biiquiz}
+      POSTGRES_USER: ${POSTGRES_USER:-biiquiz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-biiquiz} -d ${POSTGRES_DB:-biiquiz}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - app_net
+
+  migrations:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.migrations
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_net
+
   frontend:
     build:
       context: .
@@ -18,13 +49,15 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://host.biiquiz.com}
       NEXT_PUBLIC_GEMINI_MODEL: ${NEXT_PUBLIC_GEMINI_MODEL:-gemini-2.5-flash}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      DATABASE_URL: ${DATABASE_URL}
-      DIRECT_URL: ${DIRECT_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
       AUTH_SECRET: ${AUTH_SECRET}
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      - backend
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - app_net
 
@@ -38,7 +71,7 @@ services:
       HEALTHCHECK_HOST: host.biiquiz.com
       DJANGO_RUNTIME: docker
       AUTH_SECRET: ${AUTH_SECRET}
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
       DATABASE_CONN_MAX_AGE: ${DATABASE_CONN_MAX_AGE:-60}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-host.biiquiz.com}
@@ -57,6 +90,11 @@ services:
       PASSWORD_RESET_OTP_MINUTES: ${PASSWORD_RESET_OTP_MINUTES:-10}
     networks:
       - app_net
+    depends_on:
+      db:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
 
   redis:
     image: redis:7-alpine
@@ -69,3 +107,7 @@ services:
 networks:
   app_net:
     driver: bridge
+
+volumes:
+  postgres_data:
+    name: host-biiquiz-postgres-data
