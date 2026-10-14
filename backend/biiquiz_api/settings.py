@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from urllib.parse import parse_qsl, unquote, urlparse
+from urllib.parse import parse_qsl, quote, unquote, urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -37,9 +37,22 @@ WSGI_APPLICATION = "biiquiz_api.wsgi.application"
 ASGI_APPLICATION = "biiquiz_api.asgi.application"
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL and os.getenv("POSTGRES_DB") and os.getenv("POSTGRES_USER") and os.getenv("POSTGRES_PASSWORD"):
+    # Supports Dokploy/Compose environments that provide the PostgreSQL
+    # service credentials separately instead of setting DATABASE_URL.
+    db_user = quote(os.environ["POSTGRES_USER"], safe="")
+    db_password = quote(os.environ["POSTGRES_PASSWORD"], safe="")
+    db_host = os.getenv("POSTGRES_HOST", "db")
+    db_port = os.getenv("POSTGRES_PORT", "5432")
+    db_name = quote(os.environ["POSTGRES_DB"], safe="")
+    DATABASE_URL = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+
 if not DATABASE_URL:
     if not DEBUG:
-        raise ImproperlyConfigured("DATABASE_URL must be configured when DJANGO_DEBUG=false.")
+        raise ImproperlyConfigured(
+            "Configure DATABASE_URL, or set POSTGRES_DB, POSTGRES_USER, "
+            "POSTGRES_PASSWORD, and POSTGRES_HOST if the database is not named 'db'."
+        )
     DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:5432/biiquiz"
 
 
