@@ -32,15 +32,28 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       return;
     }
     delete payload.confirmPassword;
-    const response = await fetch(`/api/auth/${mode}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const body = (await response.json()) as AuthResponse;
+    let response: Response;
+    try {
+      response = await fetch(`/api/auth/${mode}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } catch {
+      setLoading(false);
+      setMessage("Could not reach the login service. Please try again.");
+      return;
+    }
+
+    let body: AuthResponse | undefined;
+    try {
+      body = (await response.json()) as AuthResponse;
+    } catch {
+      // Show a form error instead of crashing if a proxy returns an HTML 404/500 page.
+    }
     setLoading(false);
-    if (!body.ok) {
-      setMessage(body.error?.message ?? "Something went wrong.");
+    if (!response.ok || !body?.ok) {
+      setMessage(body?.error?.message ?? "The login service returned an invalid response. Please try again.");
       return;
     }
     if (mode === "login" && body.data?.role === "admin" && !body.data.organizationId) {
