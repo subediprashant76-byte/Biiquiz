@@ -1,0 +1,8 @@
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+RUN npm install --global prisma@5.22.0
+COPY prisma ./prisma
+
+CMD ["prisma", "migrate", "deploy", "--schema", "prisma/schema.prisma"]

@@ -1,6 +1,37 @@
 name: host-biiquiz
 
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-biiquiz}
+      POSTGRES_USER: ${POSTGRES_USER:-biiquiz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-biiquiz} -d ${POSTGRES_DB:-biiquiz}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - app_net
+
+  migrations:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.migrations
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_net
+
   frontend:
     image: ghcr.io/${GHCR_OWNER:-basan-ta}/host-biiquiz-frontend:${IMAGE_TAG:-latest}
     container_name: host-biiquiz-frontend
@@ -15,8 +46,10 @@ services:
       DJANGO_API_URL: http://backend:8000
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      - backend
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - app_net
 
@@ -32,8 +65,14 @@ services:
       GUNICORN_BIND: 0.0.0.0:8000
       HEALTHCHECK_HOST: host.biiquiz.com
       DJANGO_RUNTIME: docker
+      DATABASE_URL: postgresql://${POSTGRES_USER:-biiquiz}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biiquiz}
     networks:
       - app_net
+    depends_on:
+      db:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
 
   redis:
     image: redis:7-alpine
@@ -43,6 +82,10 @@ services:
       - "6379"
     networks:
       - app_net
+
+volumes:
+  postgres_data:
+    name: host-biiquiz-postgres-data
 
 networks:
   app_net:
