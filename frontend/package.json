@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/with-root-env.js npx --no-install prisma generate --schema ../backend/prisma/schema.prisma && next build",
+    "build": "npm run prisma:generate && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "prisma:generate": "node scripts/with-root-env.js npx --no-install prisma generate --schema ../backend/prisma/schema.prisma",
+    "prisma:generate": "npm rebuild @prisma/engines && node scripts/with-root-env.js prisma generate --schema ../backend/prisma/schema.prisma",
     "prisma:migrate": "node scripts/with-root-env.js npx --no-install prisma migrate dev --schema ../backend/prisma/schema.prisma",
     "prisma:deploy": "node scripts/with-root-env.js npx --no-install prisma migrate deploy --schema ../backend/prisma/schema.prisma",
     "prisma:studio": "node scripts/with-root-env.js npx --no-install prisma studio --schema ../backend/prisma/schema.prisma",
