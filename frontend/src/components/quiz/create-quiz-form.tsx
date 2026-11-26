@@ -108,9 +108,10 @@ export function CreateQuizForm() {
             </Field>
             <div className="md:col-span-2">
               <PromptInputPanel
-                compact
-                simple
-                namePrefix="ai"
+  compact
+  simple
+  topicRequired={false}
+  namePrefix="ai"
                 initialValues={{
                   subject: "",
                   level: "",

@@ -9,12 +9,14 @@ export function PromptInputPanel({
   initialValues,
   compact = false,
   namePrefix = "",
-  simple = false
+  simple = false,
+  topicRequired = true
 }: {
   initialValues?: Partial<AiPromptValues>;
   compact?: boolean;
   namePrefix?: "" | "ai";
   simple?: boolean;
+  topicRequired?: boolean;
 }) {
   const fieldName = (name: keyof AiPromptValues) => (namePrefix ? `${namePrefix}${name[0].toUpperCase()}${name.slice(1)}` : name);
   const content = (
@@ -41,9 +43,9 @@ export function PromptInputPanel({
       </Field>
       <Field label="Topic / prompt">
         <Textarea
-          name={fieldName("topic")}
-          required
-          placeholder="Example: Grade 10 human nervous system with application-based MCQs."
+  name={fieldName("topic")}
+  required={topicRequired}
+  placeholder="Example: Grade 10 human nervous system with application-based MCQs."
           defaultValue={initialValues?.topic}
           className="min-h-32"
         />
